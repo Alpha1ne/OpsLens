@@ -327,3 +327,52 @@ svg .lbl{paint-order:stroke;stroke:rgba(4,9,15,.9);stroke-width:3px;stroke-linej
   .btn.go{flex-basis:100%}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---- dashboard home, AWS hub, service guides ---- */
+#home,#awsHub,#svcPage,#crumb{display:none}
+.app[data-v=home] #home,.app[data-v=aws] #awsHub,.app[data-v=svc] #svcPage{display:block}
+.app[data-v=lesson] #crumb,.app[data-v=game] #crumb,.app[data-v=aws] #crumb,.app[data-v=svc] #crumb{display:flex}
+.app[data-v=home] .deck,.app[data-v=aws] .deck,.app[data-v=svc] .deck{display:none}
+.app:not([data-v=home]) #kpis,.app:not([data-v=home]) #bottom{display:none}
+#progPanel{display:none}
+.lessons{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin;padding-bottom:6px}
+.tab{white-space:nowrap;flex:none}
+.crumb{align-items:center;gap:8px;font:500 .84rem var(--f-mono);color:var(--muted);flex-wrap:wrap}
+.crumb button{background:none;border:0;color:var(--neon);padding:6px 2px;font:inherit;cursor:pointer}
+.crumb button:hover{text-decoration:underline}
+.crumb b{color:var(--ink);font-weight:700}
+.hhead h1,.svc h1{font:700 1.4rem var(--f-display);margin:0 0 4px}
+.hhead p{margin:0 0 16px;color:var(--muted);max-width:70ch}
+.sgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px}
+.sgrid.compact{grid-template-columns:repeat(auto-fill,minmax(235px,1fr));gap:12px}
+.scard{display:flex;flex-direction:column;gap:10px;text-align:left;padding:16px;border-radius:12px;background:linear-gradient(180deg,rgba(18,36,48,.92),rgba(9,19,27,.94));border:1px solid rgba(47,232,196,.2);color:var(--ink);cursor:pointer;min-width:0;transition:border-color .2s,box-shadow .2s,transform .2s}
+.scard:hover{border-color:var(--neon);box-shadow:0 0 18px rgba(47,232,196,.3);transform:translateY(-2px)}
+.sh{display:flex;gap:12px;align-items:center;min-width:0}
+.sh .badge{margin-left:auto}
+.sico{flex:none;width:46px;height:46px;border-radius:12px;border:1px solid rgba(47,232,196,.35);background:radial-gradient(circle,rgba(47,232,196,.16),rgba(47,232,196,.03));display:grid;place-items:center}
+.sgrid.compact .sico{width:40px;height:40px}
+.st{display:block;font:600 .66rem var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.sn{display:block;font:700 1.05rem var(--f-display)}
+.sp{display:block;color:var(--muted);font-size:.88rem;line-height:1.45;flex:1}
+.sm{display:flex;justify-content:space-between;gap:8px;font:600 .76rem var(--f-mono);color:var(--neon)}
+.pb{display:block;height:5px;background:#16303a;border-radius:3px;overflow:hidden}
+.pb i{display:block;height:100%;background:var(--neon);box-shadow:0 0 8px var(--neon)}
+.agrp{margin-top:20px}
+.agrp h3{font:700 .78rem var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--neon);margin:0 0 10px}
+.badge{flex:none;font:700 .62rem var(--f-mono);padding:2px 8px;border-radius:99px;border:1px solid;letter-spacing:.04em}
+.badge.les{color:var(--neon);border-color:var(--neon)}
+.badge.gd{color:var(--muted);border-color:#2a4a52}
+.badge.rd{color:#04110f;background:var(--res);border-color:var(--res)}
+.svc{padding:22px;border-radius:12px;background:linear-gradient(180deg,rgba(18,36,48,.92),rgba(9,19,27,.94));border:1px solid rgba(47,232,196,.2);display:flex;flex-direction:column;gap:12px}
+.svc .lead{font-size:1.05rem;margin:0;max-width:70ch}
+.svc p{margin:0;max-width:72ch}
+.svc .ph{margin:10px 0 0}
+.tw{overflow-x:auto}
+.tb{width:100%;border-collapse:collapse;font-size:.88rem}
+.tb th{text-align:left;font:700 .68rem var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:8px 10px;border-bottom:1px solid #1f4a50}
+.tb td{padding:9px 10px;border-bottom:1px solid rgba(31,74,80,.5);vertical-align:top}
+.tb td:first-child{white-space:nowrap}
+.tb td code{white-space:normal;word-break:break-word}
+.svc code{font-family:var(--f-mono);color:#bff3ea;font-size:.8rem}
+.svc .note{color:var(--muted);font-size:.82rem}
+@media (max-width:640px){.tb td:first-child{white-space:normal}.svc{padding:16px}}

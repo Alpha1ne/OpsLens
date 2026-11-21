@@ -1053,11 +1053,11 @@ function gameEnd(){
     '<div class="metrics"><div class="tile ok"><div class="k">Score</div><div class="v">'+GS.score+'</div></div><div class="tile ok"><div class="k">Fixed</div><div class="v">'+GS.right+' / '+(GS.i+1)+'</div></div><div class="tile'+(isBest?' ok':'')+'"><div class="k">Best</div><div class="v">'+Math.max(best,GS.score)+'</div></div></div>'+
     (isBest?'<p class="gk">NEW PERSONAL BEST</p>':'')+
     (GS.missed.length?'<div class="miss"><h3>Study these</h3><ul>'+GS.missed.map(function(m){return '<li><b>'+esc(m.tag)+'</b><span>'+esc(m.opts[m.ok])+'</span></li>'}).join('')+'</ul></div>':'<p>No misses. Clean shift.</p>')+
-    '<div class="nav"><button class="btn run" type="button" id="gstart">Play again</button><button class="btn" type="button" data-lesson="kubernetes">Study Kubernetes</button><button class="btn" type="button" data-lesson="git">Back to lessons</button></div></div>';
+    '<div class="nav"><button class="btn run" type="button" id="gstart">Play again</button><button class="btn" type="button" data-lesson="kubernetes">Study Kubernetes</button><button class="btn" type="button" data-go="home">Back to dashboard</button></div></div>';
 }
 function showGame(fromHash){
   clearTimers();gameOn=true;
-  $('.app').classList.add('gm');
+  $('.app').classList.add('gm');setV('game');
   renderStatic();
   if(!GS||GS.state==='done')gameHome();
   if(!fromHash){try{history.replaceState(null,'','#game')}catch(e){location.hash='game'}}
@@ -1067,7 +1067,7 @@ function hideGame(){if(!gameOn)return;gameOn=false;clearInterval(gtimer);GS=null
 
 /* ---------- order and grouping ---------- */
 (function(){
-  var groups={scaling:'Cloud',pipeline:'Delivery',kubernetes:'Containers'};
+  var groups={scaling:'Architecture',pipeline:'Delivery',kubernetes:'Containers',ec2:'AWS',s3:'AWS'};
   LESSONS.forEach(function(L){if(groups[L.id])L.group=groups[L.id]});
   var order=['git','docker','kubernetes','ec2','s3','scaling','pipeline'];
   LESSONS.sort(function(a,b){return order.indexOf(a.id)-order.indexOf(b.id)});
@@ -1098,7 +1098,7 @@ function renderDash(){
   var total=0,vis=0,done=0;
   LESSONS.forEach(function(L){var n=(seen[L.id]||[]).length;total+=L.steps.length;vis+=n;if(n>=L.steps.length)done++});
   var pct=total?Math.round(vis/total*100):0,best=lsGet('best',0),last=lsGet('last',0),shifts=lsGet('shifts',0);
-  $('#kpis').innerHTML=kpi('layers','Lessons',LESSONS.length)+kpi('clipboard','Steps',total)+kpi('shield','Steps visited',vis+' <em>('+pct+'%)</em>')+kpi('rocket','Best shift score',best)+kpi('clock','Day streak',streakDays());
+  $('#kpis').innerHTML=kpi('layers','Lessons',LESSONS.length)+kpi('clipboard','Steps',total)+kpi('shield','Steps visited',vis+' <em>('+pct+'%)</em>')+kpi('cloud','AWS guides read',svcSeen.length+'/'+svcGuides().length)+kpi('clock','Day streak',streakDays());
   $('#progTop').innerHTML='<div class="ptop">'+donut(pct)+'<ul class="plg"><li><i style="background:#2fe8c4"></i>Visited <b>'+vis+'</b></li><li><i style="background:#16303a"></i>Remaining <b>'+(total-vis)+'</b></li><li><i style="background:#35b7ff"></i>Lessons finished <b>'+done+'/'+LESSONS.length+'</b></li></ul></div>';
   $('#progList').innerHTML=LESSONS.map(function(L,k){
     var n=(seen[L.id]||[]).length,t=L.steps.length,pc=Math.round(n/t*100),col=LCOL[k%LCOL.length];
@@ -1127,12 +1127,123 @@ $('#who').innerHTML=icSvg('user',20,{k:1})+'<span>Learner</span>';
 tick();setInterval(tick,30000);
 
 
+/* ---------- AWS service guides ---------- */
+var AWSCATS=['Compute','Containers','Storage','Database','Networking','Security','CI/CD','Infrastructure and operations','Monitoring','Messaging'];
+/* id, name, category, icon, one line, how DevOps uses it, concepts, commands, related lesson */
+var SVC=[
+["ec2","EC2","Compute","server","Virtual servers you rent by the second.","",[],[],"ec2"],
+["lambda","Lambda","Compute","gear","Run a function on an event. No server to manage, billed per run.","Glue code for automation: react to S3 uploads, CloudWatch alarms or schedules, run clean-up jobs, build small APIs behind API Gateway.",[["Function","Your code plus its settings (memory, timeout, role)."],["Trigger","The event that starts it: S3, SQS, a schedule, an HTTP call."],["Execution role","The IAM role the function runs as. Give it the least access it needs."],["Cold start","The extra delay when AWS starts a fresh copy of your function."]],[["aws lambda list-functions","List the functions in this region."],["aws lambda invoke --function-name my-fn out.json","Run a function once and save the reply to out.json."],["aws lambda update-function-code --function-name my-fn --zip-file fileb://app.zip","Upload new code from a zip file."]],"pipeline"],
+["autoscaling","Auto Scaling","Compute","layers","Adds or removes EC2 instances for you as load changes.","Keeps a web tier at the right size, replaces unhealthy servers, and rolls out new AMIs with instance refresh.",[["Auto Scaling group","A set of identical instances with a min, desired and max size."],["Launch template","The recipe for each new instance: AMI, type, security group."],["Scaling policy","The rule: add a server when CPU is above a target."],["Health check","If an instance fails it, the group replaces it."]],[["aws autoscaling describe-auto-scaling-groups","Show your groups and their current size."],["aws autoscaling set-desired-capacity --auto-scaling-group-name web-asg --desired-capacity 4","Scale to 4 instances now."],["aws autoscaling start-instance-refresh --auto-scaling-group-name web-asg","Replace instances gradually with the latest launch template."]],"scaling"],
+["ecs","ECS","Containers","container","AWS's own container service. Runs Docker containers without you managing Kubernetes.","Runs containerized apps on Fargate (no servers) or on EC2, with rolling deployments behind a load balancer.",[["Cluster","A logical group where tasks run."],["Task definition","The recipe: image, CPU, memory, ports, environment."],["Service","Keeps N copies of a task running and replaces failures."],["Fargate","Run tasks without managing the underlying servers."]],[["aws ecs list-clusters","List clusters."],["aws ecs describe-services --cluster my-cluster --services web","Check desired versus running tasks."],["aws ecs update-service --cluster my-cluster --service web --force-new-deployment","Restart tasks with a fresh deployment."]],"docker"],
+["eks","EKS","Containers","pod","Managed Kubernetes. AWS runs the control plane, you run the workloads.","The standard way to run Kubernetes on AWS: deploy with kubectl or Helm, scale nodes, and connect pods to IAM.",[["Control plane","The Kubernetes brain, run and patched by AWS."],["Node group","The EC2 instances that run your pods."],["kubeconfig","The file kubectl uses to find and log in to the cluster."],["IRSA","Give a pod an IAM role instead of storing keys."]],[["aws eks list-clusters","List your clusters."],["aws eks update-kubeconfig --name my-cluster --region ap-south-1","Point kubectl at this cluster."],["kubectl get nodes","Check the worker nodes are Ready (run after update-kubeconfig)."]],"kubernetes"],
+["ecr","ECR","Containers","pkg","A private registry for your Docker images.","The place your CI pipeline pushes images, and ECS or EKS pulls them from. Supports vulnerability scanning.",[["Repository","One image name with all its tags."],["Image tag","A label such as 1.0 or a git commit id."],["Lifecycle policy","Auto-delete old images to save cost."],["Scan on push","Check each image for known vulnerabilities."]],[["aws ecr create-repository --repository-name app","Create a repository."],["aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin ACCOUNT.dkr.ecr.ap-south-1.amazonaws.com","Log Docker in. The password is piped, never typed."],["docker push ACCOUNT.dkr.ecr.ap-south-1.amazonaws.com/app:1.0","Upload the image."]],"docker"],
+["s3","S3","Storage","bucket","Object storage for files, backups, logs and static sites.","",[],[],"s3"],
+["ebs","EBS","Storage","disk","Network disks for EC2 instances.","The boot and data disk of an instance. Snapshots give you backups and a way to copy a server's disk.",[["Volume","One disk, tied to one Availability Zone."],["gp3","The usual general purpose SSD type."],["Snapshot","A point-in-time backup stored in S3."],["Attach","Connect a volume to an instance as a device."]],[["aws ec2 create-volume --size 20 --volume-type gp3 --availability-zone ap-south-1a","Create a 20 GiB disk."],["aws ec2 attach-volume --volume-id vol-0abc --instance-id i-0abc --device /dev/sdf","Attach it to an instance."],["aws ec2 create-snapshot --volume-id vol-0abc","Back it up."]],"ec2"],
+["efs","EFS","Storage","folder","A shared network file system many servers can mount at once.","Shared storage for a fleet of servers or containers, for example uploads or build caches.",[["File system","The shared storage, grows and shrinks on its own."],["Mount target","The network door in each subnet."],["NFS","The protocol servers use to mount it."],["Throughput mode","How performance is provisioned."]],[["aws efs create-file-system","Create a file system."],["aws efs describe-file-systems","List file systems and their state."],["sudo mount -t efs fs-0abc:/ /mnt/efs","Mount it on a server (needs amazon-efs-utils)."]],"ec2"],
+["rds","RDS","Database","db","Managed relational databases: MySQL, PostgreSQL, MariaDB, SQL Server and more.","AWS handles backups, patching and failover so the team runs the app, not the database server.",[["DB instance","One managed database server."],["Multi-AZ","A standby copy in another zone for failover."],["Read replica","An extra copy for read traffic."],["Snapshot","A backup you can restore into a new instance."]],[["aws rds describe-db-instances","List databases and their status."],["aws rds create-db-snapshot --db-instance-identifier db1 --db-snapshot-identifier db1-snap","Take a manual backup."],["aws rds reboot-db-instance --db-instance-identifier db1","Restart the database."]],"ec2"],
+["dynamodb","DynamoDB","Database","db","A serverless key-value and document database with very low latency.","Backs high-traffic apps and serverless stacks. Also the standard lock table for Terraform remote state.",[["Table","A collection of items. No fixed columns."],["Partition key","Decides where an item is stored. Needed for every lookup."],["Capacity mode","On-demand (pay per request) or provisioned."],["TTL","Automatically expire old items."]],[["aws dynamodb list-tables","List tables."],["aws dynamodb put-item --table-name Orders --item file://item.json","Write one item from a JSON file."],["aws dynamodb get-item --table-name Orders --key file://key.json","Read one item by key."]],""],
+["vpc","VPC","Networking","cloud","Your private network inside AWS.","Every real deployment starts here: subnets, route tables, gateways and security groups decide who can talk to whom.",[["Subnet","A slice of the VPC in one Availability Zone."],["Route table","Rules that send traffic to a gateway."],["Internet gateway","The door to the internet."],["NAT gateway","Lets private servers reach out without being reachable."]],[["aws ec2 describe-vpcs","List VPCs."],["aws ec2 create-vpc --cidr-block 10.0.0.0/16","Create a VPC with a 10.0.0.0/16 range."],["aws ec2 describe-security-groups","List firewall rules."]],"ec2"],
+["elb","Load Balancer","Networking","lb","Spreads traffic across healthy servers or containers.","Fronts every web tier. Checks health, terminates HTTPS and enables zero-downtime deployments.",[["ALB","Application Load Balancer. Understands HTTP paths and hosts."],["NLB","Network Load Balancer. Very fast TCP and UDP."],["Target group","The servers or containers behind it."],["Health check","How it decides a target is alive."]],[["aws elbv2 describe-load-balancers","List load balancers."],["aws elbv2 describe-target-groups","List target groups."],["aws elbv2 describe-target-health --target-group-arn ARN","See which targets are healthy."]],"scaling"],
+["route53","Route 53","Networking","globe","DNS: turns names into addresses, with health-based routing.","Points your domain at load balancers and CloudFront, and shifts traffic during failover or blue/green releases.",[["Hosted zone","All DNS records for one domain."],["Record","One rule, such as A, CNAME or alias."],["Routing policy","Simple, weighted, latency or failover."],["Health check","Stops sending users to a broken endpoint."]],[["aws route53 list-hosted-zones","List your domains."],["aws route53 list-resource-record-sets --hosted-zone-id Z123","Show records in a zone."],["aws route53 change-resource-record-sets --hosted-zone-id Z123 --change-batch file://change.json","Create or change records."]],""],
+["cloudfront","CloudFront","Networking","globe","A CDN that caches your content close to users.","Serves static sites from S3 and speeds up APIs, with HTTPS and DDoS protection built in.",[["Distribution","One CDN setup with a domain name."],["Origin","Where content really lives: S3 or a load balancer."],["Edge location","A cache site near the user."],["Invalidation","Remove cached files before they expire."]],[["aws cloudfront list-distributions","List distributions."],["aws cloudfront create-invalidation --distribution-id E123 --paths '/*'","Clear the cache after a deploy."],["aws cloudfront get-distribution --id E123","Show one distribution's settings."]],"s3"],
+["iam","IAM","Security","key","Who can do what in your AWS account.","Everything depends on it: users, roles for servers and pipelines, and least-privilege policies.",[["User","A person or tool with long-term credentials."],["Role","Temporary permissions that a service or person assumes."],["Policy","A JSON document of allowed and denied actions."],["MFA","A second proof of identity. Turn it on for the root user."]],[["aws sts get-caller-identity","Show who you are logged in as."],["aws iam list-users","List users."],["aws iam attach-role-policy --role-name my-role --policy-arn ARN","Give a role a policy."]],"s3"],
+["secrets","Secrets Manager","Security","lock","Stores passwords and API keys, with automatic rotation.","Apps and pipelines fetch secrets at run time, so nothing sensitive lives in code or environment files.",[["Secret","An encrypted value, often JSON."],["Rotation","Change the secret on a schedule."],["Version stage","AWSCURRENT is the live version."],["Resource policy","Who may read this secret."]],[["aws secretsmanager create-secret --name prod/db --secret-string file://secret.json","Store a secret from a file, not the command line."],["aws secretsmanager get-secret-value --secret-id prod/db","Read it (needs permission)."],["aws secretsmanager rotate-secret --secret-id prod/db","Start a rotation."]],""],
+["codebuild","CodeBuild","CI/CD","gear","Builds and tests your code on a throwaway machine.","The build and test stage of a pipeline: compile, run tests, build Docker images, push to ECR.",[["Project","The build settings: image, compute, source."],["buildspec.yml","The file that lists the build commands."],["Artifact","Build output saved to S3."],["Build image","The container the build runs in."]],[["aws codebuild list-projects","List build projects."],["aws codebuild start-build --project-name app-build","Run a build."],["aws codebuild batch-get-builds --ids BUILD_ID","Check a build's status."]],"pipeline"],
+["codepipeline","CodePipeline","CI/CD","rocket","Connects source, build, test and deploy into one automated flow.","The conveyor belt of AWS-native delivery. Each stage runs on a code change, with optional manual approval.",[["Pipeline","The whole flow from commit to release."],["Stage","A group of actions, such as Build or Deploy."],["Action","One job in a stage."],["Approval","A pause for a human to say go."]],[["aws codepipeline list-pipelines","List pipelines."],["aws codepipeline get-pipeline-state --name my-pipeline","See each stage's status."],["aws codepipeline start-pipeline-execution --name my-pipeline","Run it now."]],"pipeline"],
+["codedeploy","CodeDeploy","CI/CD","window","Pushes new versions to EC2, Lambda or ECS with safe rollout rules.","Rolling, blue/green and canary releases, with automatic rollback on failed health checks.",[["Application","The thing you deploy."],["Deployment group","The target servers or service."],["AppSpec file","Says what to copy and which scripts to run."],["Rollback","Return to the last good version."]],[["aws deploy list-applications","List applications."],["aws deploy create-deployment --application-name app --deployment-group-name prod --s3-location bucket=my-bucket,key=app.zip,bundleType=zip","Deploy a build from S3."],["aws deploy get-deployment --deployment-id d-XXXXXXXXX","Check progress."]],"pipeline"],
+["cloudformation","CloudFormation","Infrastructure and operations","clipboard","Infrastructure as code: describe AWS resources in a template and AWS builds them.","Repeatable environments. Review changes in Git, deploy the same stack to dev, test and prod.",[["Template","A YAML or JSON file describing resources."],["Stack","The set of resources created from one template."],["Change set","A preview of what an update will change."],["Drift","When someone changed a resource by hand."]],[["aws cloudformation deploy --template-file t.yaml --stack-name my-stack","Create or update a stack."],["aws cloudformation describe-stack-events --stack-name my-stack","See what happened, event by event."],["aws cloudformation delete-stack --stack-name my-stack","Remove the stack and its resources."]],""],
+["ssm","Systems Manager","Infrastructure and operations","laptop","Manage servers without SSH keys: shell access, commands, patching and config.","Session Manager gives a shell with no open port 22. Parameter Store holds settings, Run Command acts on many servers.",[["Session Manager","A browser or CLI shell with no SSH."],["Parameter Store","Config values and secrets by path."],["Run Command","Run a script on many instances."],["SSM Agent","The helper running on each server."]],[["aws ssm start-session --target i-0abc","Open a shell (needs the Session Manager plugin)."],["aws ssm get-parameter --name /app/db_host","Read a setting."],["aws ssm send-command --document-name AWS-RunShellScript --targets Key=instanceids,Values=i-0abc --parameters commands=uptime","Run uptime on an instance."]],"ec2"],
+["cloudwatch","CloudWatch","Monitoring","clock","Metrics, logs and alarms for everything running in AWS.","The on-call view: dashboards, alarms that page you, and log search.",[["Metric","A number over time, like CPU."],["Alarm","Fires when a metric crosses a limit."],["Log group","A bucket of logs from one app."],["Dashboard","A page of graphs."]],[["aws cloudwatch describe-alarms","List alarms and their state."],["aws cloudwatch list-metrics --namespace AWS/EC2","See available EC2 metrics."],["aws logs tail /aws/lambda/my-fn --follow","Stream a log group live."]],"scaling"],
+["cloudtrail","CloudTrail","Monitoring","shield","A record of every API call made in your account.","The audit trail for security and incident work: who changed that security group, and when.",[["Event","One recorded API call."],["Trail","Delivers events to S3 for long storage."],["Management events","Changes to resources, such as create or delete."],["Insights","Flags unusual API activity."]],[["aws cloudtrail lookup-events --max-results 5","See the latest events."],["aws cloudtrail describe-trails","List trails."],["aws cloudtrail get-trail-status --name my-trail","Check that logging is on."]],""],
+["sqs","SQS","Messaging","pkg","A message queue that lets one part of a system hand work to another.","Decouples services and absorbs traffic spikes. Workers pull jobs at their own speed.",[["Queue","Holds messages until a consumer takes them."],["Visibility timeout","Hides a message while it is being processed."],["Dead-letter queue","Where messages go after repeated failures."],["Standard vs FIFO","Fast and at-least-once, or strictly ordered."]],[["aws sqs create-queue --queue-name jobs","Create a queue."],["aws sqs send-message --queue-url URL --message-body 'build 42'","Put a message on it."],["aws sqs receive-message --queue-url URL","Take a message off."]],""],
+["sns","SNS","Messaging","lb","Sends one message to many subscribers: email, SMS, Lambda, queues.","Alert fan-out: a CloudWatch alarm publishes to a topic and the team gets email, chat and a pager call.",[["Topic","A channel you publish to."],["Subscription","Someone or something listening: email, SQS, Lambda."],["Publish","Send a message to a topic."],["Fan-out","One event reaching many consumers."]],[["aws sns create-topic --name alerts","Create a topic."],["aws sns subscribe --topic-arn ARN --protocol email --notification-endpoint you@example.com","Subscribe an address."],["aws sns publish --topic-arn ARN --message 'disk almost full'","Send a message."]],""]
+];
+function svcById(id){for(var i=0;i<SVC.length;i++)if(SVC[i][0]===id)return SVC[i];return null}
+function svcGuides(){return SVC.filter(function(s){return s[7].length})}
+var svcSeen=lsGet('svcseen',[]);
+/* ---------- views: dashboard, AWS hub, service guides ---------- */
+var V='home',APP=document.querySelector('.app');
+var SECT=[
+ {id:'git',kind:'lesson',lesson:'git',tag:'Code',icon:'branch'},
+ {id:'docker',kind:'lesson',lesson:'docker',tag:'Containers',icon:'container'},
+ {id:'kubernetes',kind:'lesson',lesson:'kubernetes',tag:'Containers',icon:'pod'},
+ {id:'aws',kind:'aws',name:'AWS',tag:'Cloud',icon:'cloud'},
+ {id:'scaling',kind:'lesson',lesson:'scaling',tag:'Architecture',icon:'lb'},
+ {id:'pipeline',kind:'lesson',lesson:'pipeline',tag:'Delivery',icon:'rocket'},
+ {id:'game',kind:'game',name:'Incident Room',tag:'Play',icon:'firewall'}
+];
+function lessonById(id){for(var i=0;i<LESSONS.length;i++)if(LESSONS[i].id===id)return LESSONS[i];return null}
+function nav(h){if(location.hash===h)fromHash();else location.hash=h}
+function setV(v){V=v;APP.setAttribute('data-v',v);if(v!=='game')APP.classList.remove('gm');renderNav();renderCrumb();try{window.scrollTo(0,0)}catch(e){}}
+function secName(s){return s.name||lessonById(s.lesson).name}
+function curSect(){
+  if(V==='home')return 'home';if(V==='game')return 'game';if(V==='aws'||V==='svc')return 'aws';
+  return (cur&&(cur.id==='ec2'||cur.id==='s3'))?'aws':(cur?cur.id:'');
+}
+function renderNav(){
+  var c=curSect();
+  $('#lessons').innerHTML='<button class="tab" type="button" data-go="home"'+(c==='home'?' aria-current="true"':'')+'>'+icSvg('window',18)+'Dashboard</button>'+
+  SECT.map(function(s){
+    var a=c===s.id?' aria-current="true"':'',at=s.kind==='lesson'?'data-lesson="'+s.lesson+'"':(s.kind==='aws'?'data-go="aws"':'data-game="1"');
+    return '<button class="tab" type="button" '+at+a+'>'+icSvg(s.icon,18)+esc(secName(s))+'</button>';
+  }).join('');
+}
+function renderCrumb(){
+  var a=[['Dashboard','home']];
+  if(V==='lesson'){if(cur.id==='ec2'||cur.id==='s3')a.push(['AWS','aws']);a.push([cur.name.replace(/^AWS /,'')])}
+  else if(V==='game')a.push(['Incident Room']);
+  else if(V==='aws')a.push(['AWS']);
+  else if(V==='svc'){a.push(['AWS','aws']);a.push([svcNow?svcNow[1]:''])}
+  $('#crumb').innerHTML=a.map(function(x){return x[1]?'<button type="button" data-go="'+x[1]+'">'+esc(x[0])+'</button>':'<b>'+esc(x[0])+'</b>'}).join('<span aria-hidden="true">›</span>');
+}
+function secProg(s){
+  if(s.kind==='game')return null;
+  if(s.kind==='lesson'){var L=lessonById(s.lesson);return [(seen[L.id]||[]).length,L.steps.length]}
+  var n=0,t=0;['ec2','s3'].forEach(function(id){var L=lessonById(id);n+=(seen[id]||[]).length;t+=L.steps.length});
+  return [n+svcSeen.length,t+svcGuides().length];
+}
+function renderHome(){
+  renderDash();
+  $('#home').innerHTML='<div class="hhead"><h1>Study sections</h1><p>Pick a section to open its lessons. Your progress is saved in this browser.</p></div><div class="sgrid">'+SECT.map(function(s){
+    var pr=secProg(s),at=s.kind==='lesson'?'data-lesson="'+s.lesson+'"':(s.kind==='aws'?'data-go="aws"':'data-game="1"'),blurb,meta;
+    if(s.kind==='lesson'){var L=lessonById(s.lesson);blurb=L.blurb;meta=L.steps.length+' steps'}
+    else if(s.kind==='aws'){blurb='Hands-on EC2 and S3 lessons, plus short guides to the '+svcGuides().length+' other AWS services DevOps teams use every day.';meta='2 lessons · '+svcGuides().length+' guides'}
+    else{blurb='An on-call game. Read the alert, pick your first move and beat the clock.';meta='Best '+lsGet('best',0)}
+    return '<button class="scard" type="button" '+at+'><span class="sh"><span class="sico">'+icSvg(s.icon,34)+'</span><span><span class="st">'+esc(s.tag)+'</span><span class="sn">'+esc(secName(s))+'</span></span></span><span class="sp">'+esc(blurb)+'</span><span class="sm"><span>'+esc(meta)+'</span><span>'+(pr?pr[0]+'/'+pr[1]:'Play')+' →</span></span>'+(pr?'<span class="pb"><i style="width:'+Math.round(pr[0]/pr[1]*100)+'%"></i></span>':'')+'</button>';
+  }).join('')+'</div>';
+}
+function renderAws(){
+  var h='<div class="hhead"><h1>AWS for DevOps</h1><p>The services you meet most often. EC2 and S3 are full interactive lessons. The rest are short guides with the ideas and commands you need first.</p></div>';
+  AWSCATS.forEach(function(c){
+    var items=SVC.filter(function(s){return s[2]===c});if(!items.length)return;
+    h+='<div class="agrp"><h3>'+esc(c)+'</h3><div class="sgrid compact">'+items.map(function(s){
+      var les=!s[7].length,at=les?'data-lesson="'+s[8]+'"':'data-svc="'+s[0]+'"',rd=!les&&svcSeen.indexOf(s[0])>-1;
+      return '<button class="scard" type="button" '+at+'><span class="sh"><span class="sico">'+icSvg(s[3],30)+'</span><span class="sn">'+esc(s[1])+'</span><span class="badge '+(les?'les':(rd?'rd':'gd'))+'">'+(les?'Lesson':(rd?'Read':'Guide'))+'</span></span><span class="sp">'+esc(s[4])+'</span></button>';
+    }).join('')+'</div></div>';
+  });
+  $('#awsHub').innerHTML=h;
+}
+var svcNow=null;
+function renderSvc(id){
+  var s=svcById(id);svcNow=s;
+  if(!s||!s[7].length){nav('#aws');return false}
+  if(svcSeen.indexOf(id)<0){svcSeen.push(id);lsSet('svcseen',svcSeen)}
+  var rel=s[8]?lessonById(s[8]):null;
+  $('#svcPage').innerHTML='<article class="svc"><div class="sh"><span class="sico">'+icSvg(s[3],44)+'</span><div><span class="st">AWS · '+esc(s[2])+'</span><h1>'+esc(s[1])+'</h1></div></div>'+
+   '<p class="lead">'+esc(s[4])+'</p>'+
+   '<h3 class="ph">Where DevOps uses it</h3><p>'+esc(s[5])+'</p>'+
+   '<h3 class="ph">Key ideas</h3><div class="tw"><table class="tb"><thead><tr><th>Term</th><th>Meaning</th></tr></thead><tbody>'+s[6].map(function(r){return '<tr><td><b>'+esc(r[0])+'</b></td><td>'+esc(r[1])+'</td></tr>'}).join('')+'</tbody></table></div>'+
+   '<h3 class="ph">Commands to know</h3><div class="tw"><table class="tb"><thead><tr><th>Command</th><th>What it does</th></tr></thead><tbody>'+s[7].map(function(r){return '<tr><td><code>'+esc(r[0])+'</code></td><td>'+esc(r[1])+'</td></tr>'}).join('')+'</tbody></table></div>'+
+   '<p class="note">Commands need the AWS CLI and a configured profile. Never type access keys into a command. Use <code>aws configure</code> or a role. Replace the placeholder values (ARN, ids, ACCOUNT) with your own.</p>'+
+   '<div class="nav"><button class="btn" type="button" data-go="aws">← All AWS services</button>'+(rel?'<button class="btn go" type="button" data-lesson="'+rel.id+'"><span>Related lesson: '+esc(rel.name)+'</span><span aria-hidden="true">→</span></button>':'')+'</div></article>';
+  return true;
+}
+function viewHome(){hideGame();setV('home');renderHome()}
+function viewAws(){hideGame();setV('aws');renderAws()}
+function viewSvc(id){hideGame();var s=svcById(id);svcNow=s;if(!renderSvc(id))return;setV('svc')}
+
 function renderStatic(){
-  var gorder=[],gmap={};
-  LESSONS.forEach(function(L){if(!gmap[L.group]){gmap[L.group]=[];gorder.push(L.group)}gmap[L.group].push(L)});
-  $('#lessons').innerHTML=gorder.map(function(g){
-    return '<div class="grp"><span class="gl">'+esc(g)+'</span>'+gmap[g].map(function(L){return '<button class="tab" type="button" data-lesson="'+L.id+'"'+(L===cur&&!gameOn?' aria-current="true"':'')+'>'+icSvg(L.icon||'server',18)+esc(L.name)+'</button>'}).join('')+'</div>';
-  }).join('')+'<div class="grp"><span class="gl">Play</span><button class="tab" type="button" data-game="1"'+(gameOn?' aria-current="true"':'')+'>'+icSvg('firewall',18)+'Incident Room</button></div>';
+  renderNav();
   $('#intro').textContent=cur.blurb;
   $('#partsList').innerHTML=(cur.parts||[]).map(function(p,k){return '<li style="animation-delay:'+(k*50)+'ms">'+icSvg(p[0],42,p[1])+'<div><b>'+esc(p[2])+'</b><span>'+esc(p[3])+'</span></div></li>'}).join('');
   $('#legend').innerHTML=cur.legend.map(function(l){return '<li><i class="'+l[0]+'"></i>'+esc(l[1])+'</li>'}).join('');
@@ -1145,7 +1256,7 @@ function renderStatic(){
 function renderCard(){
   var st=cur.steps[idx],last=idx===cur.steps.length-1;
   var li=LESSONS.indexOf(cur),nextL=LESSONS[li+1];
-  var nextLabel=last?(nextL?'Next lesson: '+nextL.name:'Back to the first lesson'):'Next: '+cur.steps[idx+1].label;
+  var nextLabel=last?(nextL?'Next lesson: '+nextL.name:'Back to the dashboard'):'Next: '+cur.steps[idx+1].label;
   $('#card').innerHTML=
     '<div class="top"><span>STEP '+(idx+1)+' / '+cur.steps.length+'</span><span class="chipTag">'+esc(st.tag)+'</span></div>'+
     '<h2>'+esc(st.title)+'</h2><p>'+esc(st.text)+'</p>'+
@@ -1164,29 +1275,36 @@ function go(i,fromHash){
 }
 function pick(id,i,fromHash){
   hideGame();
-  for(var k=0;k<LESSONS.length;k++)if(LESSONS[k].id===id){cur=LESSONS[k];go(i,fromHash);return true}
+  for(var k=0;k<LESSONS.length;k++)if(LESSONS[k].id===id){cur=LESSONS[k];setV('lesson');go(i,fromHash);return true}
   return false;
 }
 function fromHash(){
-  if(location.hash==='#game'){if(!cur)cur=LESSONS[0];showGame(true);return}
+  var h=location.hash||'#home';
+  if(h==='#game'){if(!cur)cur=LESSONS[0];showGame(true);return}
+  if(h==='#home'){viewHome();return}
+  if(h==='#aws'){viewAws();return}
+  var sv=/^#svc-([a-z0-9]+)$/.exec(h);
+  if(sv){viewSvc(sv[1]);return}
   hideGame();
-  var m=/^#([a-z0-9]+)-(\d+)$/.exec(location.hash||'');
+  var m=/^#([a-z0-9]+)-(\d+)$/.exec(h);
   if(m&&pick(m[1],parseInt(m[2],10)-1,true))return;
-  cur=LESSONS[0];go(0,true);
+  viewHome();
 }
 
 document.addEventListener('click',function(e){
   var t=e.target.closest?e.target.closest('button'):null;if(!t)return;
-  if(t.dataset.game){showGame();return}
+  if(t.dataset.game){nav('#game');return}
   if(t.dataset.gopt!=null){gameAnswer(parseInt(t.dataset.gopt,10));return}
   if(t.id==='gstart'){gameStart();return}
   if(t.id==='gnext'){gameNext();return}
-  if(t.dataset.lesson){pick(t.dataset.lesson,0);return}
+  if(t.dataset.go){nav(t.dataset.go==='home'?'#home':'#aws');return}
+  if(t.dataset.svc){nav('#svc-'+t.dataset.svc);return}
+  if(t.dataset.lesson){nav('#'+t.dataset.lesson+'-1');return}
   if(t.dataset.step!=null){go(parseInt(t.dataset.step,10));return}
   if(t.id==='back'){go(idx-1);return}
   if(t.id==='next'){
     if(idx<cur.steps.length-1)go(idx+1);
-    else{var li=LESSONS.indexOf(cur);cur=LESSONS[(li+1)%LESSONS.length];go(0)}
+    else{var li=LESSONS.indexOf(cur),nl=LESSONS[li+1];nav(nl?'#'+nl.id+'-1':'#home')}
     return;
   }
   if(t.id==='replay'){renderStage(true);return}
@@ -1203,7 +1321,7 @@ document.addEventListener('input',function(e){
 });
 document.addEventListener('keydown',function(e){
   if(gameOn){if(GS&&GS.state==='q'&&/^[123]$/.test(e.key)){var ob=document.querySelectorAll('.opt')[+e.key-1];if(ob)ob.click()}return}
-  var tg=e.target&&e.target.tagName;if(tg==='INPUT'&&e.target.type==='range')return;
+  if(V!=='lesson')return;var tg=e.target&&e.target.tagName;if(tg==='INPUT'&&e.target.type==='range')return;
   if(e.key==='ArrowRight')go(idx+1);else if(e.key==='ArrowLeft')go(idx-1);
 });
 window.addEventListener('hashchange',fromHash);
