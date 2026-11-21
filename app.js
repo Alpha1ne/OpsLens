@@ -1,0 +1,1029 @@
+(function(){
+var reduce=false;try{reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches}catch(e){}
+function $(s){return document.querySelector(s)}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function fmt(n){return Number(n).toLocaleString('en-US')}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function lsGet(k,d){try{var v=localStorage.getItem('dvl:'+k);return v?JSON.parse(v):d}catch(e){return d}}
+function lsSet(k,v){try{localStorage.setItem('dvl:'+k,JSON.stringify(v))}catch(e){}}
+
+/* ---------- svg helpers ---------- */
+function T(x,y,txt,cls,anchor){return '<text x="'+x+'" y="'+y+'" class="'+(cls||'lbl')+'" text-anchor="'+(anchor||'start')+'">'+esc(txt)+'</text>'}
+function box(x,y,w,h,cls,r){r=r==null?10:r;return '<rect x="'+(x+5)+'" y="'+(y+5)+'" width="'+w+'" height="'+h+'" rx="'+r+'" class="shd"/><rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx="'+r+'" class="'+(cls||'bx')+'"/>'}
+function chip(cx,cy,txt,dot,dash){
+  var w=Math.round(txt.length*8+26+(dot?12:0)),h=28,x=cx-w/2;
+  return '<rect x="'+(x+3)+'" y="'+(cy-h/2+3)+'" width="'+w+'" height="'+h+'" rx="14" class="shd"/><rect x="'+x+'" y="'+(cy-h/2)+'" width="'+w+'" height="'+h+'" rx="14" class="chip"'+(dash?' stroke-dasharray="5 4"':'')+'/>'+
+    (dot?'<circle cx="'+(x+16)+'" cy="'+cy+'" r="5" class="pk '+dot+'"/>':'')+
+    '<text x="'+(cx+(dot?7:0))+'" y="'+(cy+5)+'" class="lbl" text-anchor="middle">'+esc(txt)+'</text>';
+}
+function packet(path,dur,begin,cls){
+  if(reduce)return '';
+  return '<circle r="6.5" class="pk '+cls+'"><animateMotion dur="'+dur+'s" begin="-'+begin.toFixed(2)+'s" repeatCount="indefinite" path="'+path+'"/></circle>';
+}
+function person(x,y,k){return '<circle cx="'+(x+13)+'" cy="'+(y+8)+'" r="8" class="pe p'+k+'"/><rect x="'+(x+1)+'" y="'+(y+19)+'" width="24" height="20" rx="8" class="pe p'+k+'"/>'}
+/* ---------- icon library (original concept icons, 48x48 grid) ---------- */
+var _pd=0,still=false;
+function pop(inner){if(still||reduce){_pd+=45;return '<g>'+inner+'</g>'}var s='<g class="pop" style="animation-delay:'+Math.min(_pd,520)+'ms">'+inner+'</g>';_pd+=45;return s}
+var ICONS={
+ user:function(o){var c='f-p'+(o.k||0);return '<circle cx="24" cy="15" r="8" class="'+c+'"/><path d="M8 43c0-9 7-15 16-15s16 6 16 15z" class="'+c+'"/>'},
+ laptop:function(){return '<rect x="9" y="9" width="30" height="22" rx="3" class="f-s"/><rect x="13" y="13" width="22" height="14" rx="1.5" class="f-run"/><path d="M4 36h40l-3 6H7z" class="f-pad"/>'},
+ server:function(o){
+  var led=o.led||'f-res',s='',k,y;
+  for(k=0;k<3;k++){
+    y=5+k*13;
+    s+='<rect x="5" y="'+y+'" width="38" height="11" rx="3" class="'+(o.dim?'f-pad':'f-s')+'"/><circle cx="12" cy="'+(y+5.5)+'" r="2.4" class="'+led+'">'+(o.blink&&!reduce?'<animate attributeName="opacity" values="1;.2;1" dur="1.4s" begin="-'+(k*0.4)+'s" repeatCount="indefinite"/>':'')+'</circle><path d="M22 '+(y+5.5)+'h15"/>';
+  }
+  return s;
+ },
+ db:function(){return '<path d="M8 12v24c0 3.3 7.2 6 16 6s16-2.7 16-6V12z" class="f-run"/><path d="M8 24c0 3.3 7.2 6 16 6s16-2.7 16-6"/><ellipse cx="24" cy="12" rx="16" ry="6" class="f-s"/>'},
+ cloud:function(){return '<path d="M14 38a9 9 0 0 1 0-18 12 12 0 0 1 23-3 10 10 0 0 1 0 21z" class="f-s"/>'},
+ globe:function(){return '<circle cx="24" cy="24" r="17" class="f-run"/><ellipse cx="24" cy="24" rx="7" ry="17"/><path d="M7 24h34M10 14q14 6 28 0M10 34q14-6 28 0"/>'},
+ lb:function(){return '<path d="M3 24h10"/><path d="M28 20l11-9M29 24h10M28 28l11 9"/><circle cx="21" cy="24" r="8" class="f-ok"/><path d="M18 24h6M21 21v6"/><circle cx="42" cy="11" r="3.5" class="f-req"/><circle cx="42" cy="24" r="3.5" class="f-req"/><circle cx="42" cy="37" r="3.5" class="f-req"/>'},
+ firewall:function(){return '<rect x="5" y="9" width="38" height="30" rx="3" class="f-wait"/><path d="M5 19h38M5 29h38M19 9v10M31 9v10M13 19v10M25 19v10M37 19v10M19 29v10M31 29v10"/>'},
+ shield:function(){return '<path d="M24 4l16 6v12c0 11-7 18-16 22-9-4-16-11-16-22V10z" class="f-run"/><path d="M16 24l6 6 11-12"/>'},
+ container:function(){return '<rect x="4" y="11" width="40" height="26" rx="3" class="f-run"/><path d="M12 15v18M20 15v18M28 15v18M36 15v18"/>'},
+ layers:function(){return '<rect x="6" y="6" width="36" height="9" rx="3" class="f-ok"/><rect x="6" y="19" width="36" height="9" rx="3" class="f-run"/><rect x="6" y="32" width="36" height="9" rx="3" class="f-pad"/>'},
+ bucket:function(){return '<path d="M7 14h34l-4 25a4 4 0 0 1-4 3.5H15a4 4 0 0 1-4-3.5z" class="f-run"/><ellipse cx="24" cy="14" rx="17" ry="5" class="f-s"/><path d="M11 26h26"/>'},
+ file:function(o){
+  var t=o.t||'doc',d='';
+  if(t==='img')d='<path d="M14 38l8-10 6 7 5-5 6 8z" class="f-ok"/><circle cx="31" cy="22" r="3" class="f-slow"/>';
+  else if(t==='pdf')d='<rect x="11" y="26" width="27" height="10" class="f-bad"/>';
+  else if(t==='html')d='<path d="M21 24l-6 7 6 7M28 24l6 7-6 7"/>';
+  else d='<path d="M17 24h14M17 30h14M17 36h9"/>';
+  return '<path d="M11 4h18l9 9v31H11z" class="f-s"/><path d="M29 4v9h9"/>'+d;
+ },
+ disk:function(){return '<rect x="5" y="11" width="38" height="26" rx="5" class="f-pad"/><circle cx="19" cy="24" r="7" class="f-s"/><circle cx="19" cy="24" r="2" class="f-ink"/><path d="M31 18h8M31 24h8"/><circle cx="37" cy="31" r="2" class="f-res"/>'},
+ key:function(){return '<circle cx="15" cy="24" r="8" class="f-wait"/><path d="M23 24h20M36 24v7M42 24v5"/>'},
+ lock:function(){return '<rect x="9" y="21" width="30" height="21" rx="4" class="f-wait"/><path d="M15 21v-6a9 9 0 0 1 18 0v6"/><circle cx="24" cy="31" r="2.5" class="f-ink"/>'},
+ clock:function(){return '<circle cx="24" cy="24" r="18" class="f-s"/><path d="M24 12v13l9 5"/>'},
+ gear:function(o){
+  var t='',a;
+  for(a=0;a<360;a+=45)t+='<rect x="21" y="3" width="6" height="9" rx="1.5" transform="rotate('+a+' 24 24)" class="f-pad"/>';
+  return '<g>'+(o.spin&&!reduce?'<animateTransform attributeName="transform" type="rotate" from="0 24 24" to="360 24 24" dur="4s" repeatCount="indefinite"/>':'')+t+'<circle cx="24" cy="24" r="14" class="f-pad"/><circle cx="24" cy="24" r="5" class="f-s"/></g>';
+ },
+ commit:function(){return '<path d="M2 24h14M32 24h14"/><circle cx="24" cy="24" r="8" class="f-s"/>'},
+ branch:function(){return '<path d="M13 14v20M35 20c0 9-10 8-22 14"/><circle cx="13" cy="10" r="5" class="f-s"/><circle cx="13" cy="38" r="5" class="f-s"/><circle cx="35" cy="16" r="5" class="f-s"/>'},
+ flask:function(){return '<path d="M18 5h12M20 5v14L8 39a3 3 0 0 0 2.6 4.5h26.8A3 3 0 0 0 40 39L28 19V5" class="f-s"/><path d="M13 32h22l4 7a2 2 0 0 1-1.8 3H10.8A2 2 0 0 1 9 39z" class="f-ok"/>'},
+ pkg:function(){return '<path d="M24 4l17 9v22l-17 9-17-9V13z" class="f-wait"/><path d="M7 13l17 9 17-9M24 22v22"/>'},
+ window:function(){return '<rect x="4" y="8" width="40" height="32" rx="4" class="f-s"/><path d="M4 18h40"/><circle cx="10" cy="13" r="1.6" class="f-red"/><circle cx="16" cy="13" r="1.6" class="f-queue"/><circle cx="22" cy="13" r="1.6" class="f-res"/><rect x="9" y="23" width="14" height="12" class="f-run"/>'},
+ rocket:function(){return '<path d="M24 3c8 6 10 15 8 26H16C14 18 16 9 24 3z" class="f-s"/><circle cx="24" cy="17" r="4" class="f-run"/><path d="M16 29l-7 7 3 3 5-4M32 29l7 7-3 3-5-4" class="f-bad"/><path d="M20 33c1 5 2 8 4 11 2-3 3-6 4-11" class="f-wait"/>'},
+ folder:function(){return '<path d="M4 12h15l5 6h20v23H4z" class="f-wait"/><path d="M4 18h40"/>'},
+ clipboard:function(){return '<rect x="9" y="8" width="30" height="35" rx="4" class="f-s"/><rect x="17" y="4" width="14" height="8" rx="3" class="f-pad"/><path d="M15 22l3 3 5-6M27 22h8M15 33l3 3 5-6M27 33h8"/>'},
+ pod:function(o){return '<path d="M24 4l17 10v20L24 44 7 34V14z" class="'+(o.f||'f-ok')+'"/><rect x="16" y="18" width="16" height="13" rx="2" class="f-s"/>'}
+};
+function ic(name,x,y,size,o){
+  o=o||{};
+  var s=size/48,body=ICONS[name](o);
+  if(o.run&&!reduce&&name!=='gear')body='<g><animateTransform attributeName="transform" type="rotate" values="-6 24 24;6 24 24;-6 24 24" dur="0.8s" repeatCount="indefinite"/>'+body+'</g>';
+  return '<g class="i" transform="translate('+x+' '+y+') scale('+s.toFixed(3)+')" stroke-width="'+(2.6/s).toFixed(2)+'"'+(o.dim?' opacity=".5"':'')+'>'+body+'</g>';
+}
+function icSvg(name,px,o){return '<svg class="i" viewBox="0 0 48 48" width="'+px+'" height="'+px+'" stroke-width="2.6" aria-hidden="true">'+ICONS[name](o||{})+'</svg>'}
+
+
+/* ---------- state ---------- */
+var LESSONS=[];
+var cur=null, idx=0, timers=[], PG={}, gameOn=false;
+function later(a,b){var fn=typeof a==='function'?a:b,ms=typeof a==='function'?b:a;timers.push(setTimeout(fn,ms))}
+function clearTimers(){timers.forEach(clearTimeout);timers=[]}
+function getPG(L){if(!PG[L.id])PG[L.id]=L.pg.init();return PG[L.id]}
+
+/* =========================================================
+   LESSON 1: scaling a web app
+   ========================================================= */
+function scaleModel(s){
+  var failed=s.failed&&s.servers>1;
+  var healthy=s.servers-(failed?1:0), load=s.users*0.05, cap=healthy*60, u=load/cap, m={healthy:healthy,load:load,cap:cap,u:u,failed:failed};
+  if(u>=1){m.p50='timeout';m.p99='timeout';m.thr=Math.round(cap)}
+  else{var p=Math.round(120/(1-0.9*Math.min(u,0.97)));m.p50=p+' ms';m.p99=Math.round(p*(1.4+2*u))+' ms';m.thr=Math.round(load)}
+  m.util=Math.round(Math.min(u,1)*100);
+  return m;
+}
+function scaleMetrics(s){
+  var m=scaleModel(s), st=m.u>=1?'bad':(m.u>0.7?'warn':'ok');
+  return [['P50 latency',m.p50,st],['P99 latency',m.p99,st],['Throughput',m.thr+' req/s',m.load>m.cap?'bad':'ok'],['Utilization',m.util+'%',st]];
+}
+function drawScale(s){
+  var m=scaleModel(s),n=s.servers,lb=n>1,o='',i;
+  var sw=150,sx=444,sh=46,gap=12,total=n*sh+(n-1)*gap,y0=Math.round((380-total)/2),share=m.load/m.healthy;
+  var np=clamp(Math.ceil(s.users/300),1,9),pp='';
+  for(i=0;i<np;i++){
+    var px=36+(i%3)*52,py=114+Math.floor(i/3)*50;
+    pp+='<g>'+(reduce?'':'<animateTransform attributeName="transform" type="translate" values="0 0;0 -3;0 0" dur="1.8s" begin="-'+(i*0.3).toFixed(1)+'s" repeatCount="indefinite"/>')+ic('user',px,py,38,{k:i%3})+'</g>';
+  }
+  o+=pop(box(16,96,176,176,'bx pad',16)+pp);
+  var paths=[];
+  for(i=0;i<n;i++){
+    var yc=y0+i*(sh+gap)+sh/2,down=m.failed&&i===n-1;
+    var pf=lb?'M192,184 L346,184 C390,184 396,'+yc+' '+sx+','+yc:'M192,184 C320,184 330,'+yc+' '+sx+','+yc;
+    var pb=lb?'M'+sx+','+yc+' C396,'+yc+' 390,184 346,184 L192,184':'M'+sx+','+yc+' C330,'+yc+' 320,184 192,184';
+    paths.push({yc:yc,down:down,pf:pf,pb:pb});
+    o+='<path d="'+pf+'" class="ln'+(down?' dead':'')+'"/>';
+  }
+  for(i=0;i<n;i++){
+    var p=paths[i];if(p.down)continue;
+    var ui=share/60,k=clamp(Math.round(share/18),1,3),cls=ui>0.8?'c-slow':'c-req',d=2.2;
+    for(var j=0;j<k;j++)o+=packet(p.pf,d,(j*d/k)+i*0.15,cls);
+    if(ui<1)o+=packet(p.pb,d,1.1+i*0.15,'c-res');
+  }
+  if(lb){
+    o+=pop(box(262,144,84,80,'bx',10)+ic('lb',282,150,44)+T(304,208,'load','lbl xs','middle')+T(304,221,'balancer','lbl xs','middle'));
+    o+=chip(304,262,'round robin');
+    if(m.failed)o+=chip(304,300,'skipping server '+n,'c-bad');
+  }
+  for(i=0;i<n;i++){
+    var q=paths[i],ys=q.yc-sh/2,ui2=q.down?0:share/60,over=ui2>=1;
+    var led=q.down?'f-red':(ui2<0.7?'f-res':(ui2<0.9?'f-slow':'f-red'));
+    var g=box(sx,ys,sw,sh,'bx'+(q.down?' dead':''),9)+ic('server',sx+8,ys+5,36,{led:led,blink:!q.down,dim:q.down})+T(sx+52,ys+19,'server '+(i+1),'lbl xs');
+    if(q.down){
+      g+=T(sx+sw-10,ys+19,'down','lbl xs','end')+'<path d="M'+(sx+sw-44)+','+(ys+26)+' l14,12 m0,-12 l-14,12" class="cross"/>';
+    }else{
+      var col=ui2<0.7?'c-res':(ui2<0.9?'c-slow':'c-bad'),bw=Math.max(4,Math.round(86*Math.min(ui2,1)));
+      g+=T(sx+sw-10,ys+19,Math.round(Math.min(ui2,1)*100)+'%','lbl xs','end')+'<rect x="'+(sx+52)+'" y="'+(ys+28)+'" width="86" height="8" rx="4" class="track"/><rect x="'+(sx+52)+'" y="'+(ys+28)+'" width="'+bw+'" height="8" rx="4" class="pk '+col+'">'+(still?'':'<animate attributeName="width" from="0" to="'+bw+'" dur=".6s" fill="freeze"/>')+'</rect>';
+    }
+    if(over&&!reduce)g='<g><animateTransform attributeName="transform" type="translate" values="0 0;-2 0;2 0;0 0" dur=".4s" repeatCount="indefinite"/>'+g+'</g>';
+    o+=pop(g);
+    if(over)for(var z=0;z<3;z++)o+='<rect x="'+(sx+sw+8+z*10)+'" y="'+(q.yc-6)+'" width="8" height="12" rx="2" class="pk c-queue">'+(reduce?'':'<animate attributeName="y" values="'+(q.yc-6)+';'+(q.yc-12)+';'+(q.yc-6)+'" dur=".6s" begin="'+(z*0.15)+'s" repeatCount="indefinite"/>')+'</rect>';
+  }
+  o+=chip(104,300,fmt(s.users)+' users');
+  o+=chip(330,36,m.u>=1?'requests timing out':'≈ '+m.p50+' round trip',m.u>=1?'c-bad':null);
+  return o;
+}
+LESSONS.push({
+  id:'scaling',icon:'lb',parts:[["user", {}, "Users", "People or apps sending requests."], ["lb", {}, "Load balancer", "Splits traffic across servers."], ["server", {}, "Server", "Runs your app. The light shows how busy it is."], ["clock", {}, "Latency", "How long one request takes."]],name:'Scaling a web app',
+  blurb:'Watch load grow on one server, then add a load balancer, lose a server and let autoscaling react. Capacity is 60 requests per second per server and every user sends about one request every 20 seconds.',
+  legend:[['c-req','request'],['c-res','response'],['c-slow','slow request'],['c-queue','waiting in queue'],['c-bad','server down']],
+  draw:drawScale,metrics:scaleMetrics,
+  steps:[
+   {label:'One server',tag:'SETUP',title:'One server, a few users',
+    text:'200 users send about 10 requests per second. One app server can finish around 60 per second, so it is mostly idle and answers in about 140 ms. Watch the blue requests go in and the green responses come back.',
+    idea:'Capacity is how many requests per second a server can finish. Utilization is load divided by capacity.',scene:{users:200,servers:1}},
+   {label:'Busier',tag:'LOAD',title:'Latency climbs before anything breaks',
+    text:'At 1,000 users the load is 50 requests per second, 83% of capacity. Nothing has failed, but requests now wait behind each other. P50 latency is several times higher and P99, the slowest 1% of requests, is much worse.',
+    idea:'Queues grow non-linearly. The last 20% of utilization costs far more latency than the first 80%.',scene:{users:1000,servers:1}},
+   {label:'Overload',tag:'FAIL',title:'Past 100%, requests wait and then fail',
+    text:'At 2,000 users, requests arrive faster than the server can finish them. A queue builds, requests time out, and throughput is stuck at the server ceiling of 60 requests per second no matter how many users arrive.',
+    idea:'Extra load beyond capacity is not served. It waits, then it fails.',scene:{users:2000,servers:1}},
+   {label:'Scale out',tag:'SCALE',title:'Scale out behind a load balancer',
+    text:'Add two more servers and put a load balancer in front. It spreads requests round robin, so each server sees a third of the traffic and latency drops back to normal.',
+    idea:'Horizontal scaling adds machines. Vertical scaling makes one machine bigger. Horizontal also removes the single point of failure.',scene:{users:2000,servers:3}},
+   {label:'Failure',tag:'FAIL',title:'One server dies and nobody notices',
+    text:'Health checks see that server 3 stopped answering and the load balancer stops sending it traffic. Users see no errors, but the two remaining servers now run hotter at 83%.',
+    idea:'Plan for N+1: keep enough spare capacity that losing one server does not push the rest past their limit.',scene:{users:2000,servers:3,failed:true}},
+   {label:'Autoscale',tag:'SCALE',title:'Autoscaling adds capacity for you',
+    text:'Traffic doubles to 4,000 users. An autoscaler watches utilization and adds servers until it falls back under a target, often 60 to 70%. When traffic drops it removes them again to save money.',
+    idea:'Scale on a metric such as CPU, requests per second or queue depth, not on a schedule you have to guess.',scene:{users:4000,servers:5}},
+   {label:'Try it',tag:'PLAY',title:'Break it yourself',pg:true,
+    text:'Drag the users slider up, add or remove servers, and kill one. Find the point where utilization crosses 100% and see how many servers you need to bring latency back under control.',
+    idea:'Try 3,000 users with 3 servers, then kill one. Then add a fourth.'}
+  ],
+  pg:{
+   init:function(){return {users:1500,servers:2,failed:false}},
+   scene:function(p){return p},
+   fmt:{users:function(v){return fmt(v)}},
+   controls:function(p){return '<label class="ctl"><span>Users <b id="v-users">'+fmt(p.users)+'</b></span><input type="range" id="c-users" data-k="users" min="100" max="6000" step="100" value="'+p.users+'"></label>'+
+    '<label class="ctl"><span>Servers <b id="v-servers">'+p.servers+'</b></span><input type="range" id="c-servers" data-k="servers" min="1" max="6" step="1" value="'+p.servers+'"></label>'+
+    '<label class="ctl chk"><input type="checkbox" id="c-failed" data-k="failed"'+(p.failed?' checked':'')+'> Kill one server</label><p class="msg" id="pgmsg">Killing a server needs at least 2 servers.</p>'},
+   set:function(p,k,v){p[k]=v},
+   act:function(){}
+  }
+});
+
+/* =========================================================
+   LESSON 2: CI/CD pipeline
+   ========================================================= */
+var STG=['Commit','Build','Test','Package','Staging','Prod'], DUR=['2s','9s','24s','31s','18s',''];
+function ci(st,at,tag,log,m,split){return {st:st,at:at,tag:tag,log:log,m:m,split:split==null?null:split}}
+function mt(stage,lead,tests,ts,rel,rs,ss){return [['Stage',stage,ss||'ok'],['Lead time',lead,'ok'],['Tests',tests,ts||'ok'],['Release',rel,rs||'ok']]}
+var STG_IC=['commit','gear','flask','pkg','window','rocket'];
+function drawCI(s){
+  var o='',i,x0=18,w=84,gap=20,y=92,h=76;
+  for(i=0;i<6;i++){
+    var x=x0+i*(w+gap),st=s.st[i],cx=x+w/2,g='';
+    if(i<5)o+='<path d="M'+(x+w+2)+','+(y+h/2)+' L'+(x+w+gap-3)+','+(y+h/2)+'" class="ln'+(s.st[i]==='pass'?' ok':'')+(s.st[i+1]==='run'?' flow':'')+'"/>';
+    g+=box(x,y,w,h,'bx st-'+st,10)+ic(STG_IC[i],cx-16,y+8,32,{run:st==='run',spin:st==='run'})+T(cx,y+h-10,STG[i],'lbl xs','middle');
+    if(st==='run'&&!reduce)g+='<rect x="'+(x-5)+'" y="'+(y-5)+'" width="'+(w+10)+'" height="'+(h+10)+'" rx="14" fill="none" stroke="var(--req)" stroke-width="2.5"><animate attributeName="opacity" values=".9;.15;.9" dur="1.2s" repeatCount="indefinite"/></rect>';
+    var bx=x+w-13,by=y+14;
+    if(st==='pass')g+='<circle cx="'+bx+'" cy="'+by+'" r="9" class="pk c-res"/><path d="M'+(bx-4)+','+by+' l3,3.5 l5.5,-6.5" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"'+(i===s.at&&!reduce?' stroke-dasharray="14" stroke-dashoffset="14"><animate attributeName="stroke-dashoffset" from="14" to="0" dur=".45s" begin=".25s" fill="freeze"/></path>':'/>');
+    else if(st==='fail')g+='<circle cx="'+bx+'" cy="'+by+'" r="9" class="pk c-bad"/><path d="M'+(bx-3.5)+','+(by-3.5)+' l7,7 m0,-7 l-7,7" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>';
+    o+=pop(g);
+    if(st==='pass')o+=T(cx,y+h+22,DUR[i],'lbl sm','middle');
+  }
+  if(s.split!=null){
+    var px=x0+5*(w+gap),sw2=Math.max(6,Math.round(w*s.split/100));
+    o+='<rect x="'+px+'" y="'+(y+h+30)+'" width="'+w+'" height="10" rx="5" class="track"/><rect x="'+px+'" y="'+(y+h+30)+'" width="'+sw2+'" height="10" rx="5" class="pk c-req">'+(still?'':'<animate attributeName="width" from="0" to="'+sw2+'" dur=".6s" fill="freeze"/>')+'</rect>';
+    o+=T(px+w/2,y+h+56,'v1.8.4 '+s.split+'%','lbl sm','middle');
+  }
+  var cxT=x0+s.at*(w+gap)+w/2,cw=Math.round(s.tag.length*8+26),ccx=clamp(cxT,cw/2+8,640-cw/2-10);
+  o+=pop('<path d="M'+cxT+',76 L'+cxT+','+y+'" class="ln"/>'+chip(ccx,62,s.tag));
+  o+='<rect x="23" y="245" width="604" height="128" rx="10" class="shd"/><rect x="18" y="240" width="604" height="128" rx="10" class="term"/>';
+  o+='<circle cx="36" cy="254" r="4.5" fill="#ff5f57"/><circle cx="52" cy="254" r="4.5" fill="#febc2e"/><circle cx="68" cy="254" r="4.5" fill="#28c840"/>'+T(88,258,'ci runner · pipeline #483','tl dim');
+  var nl=Math.min(s.log.length,5);
+  for(i=0;i<nl;i++)o+=T(34,286+i*19,s.log[i][1],'tl '+(s.log[i][0]||''));
+  if(nl){o+='<rect x="'+Math.round(34+s.log[nl-1][1].length*7.85+5)+'" y="'+(286+(nl-1)*19-11)+'" width="8" height="14" fill="#6ee7a8">'+(reduce?'':'<animate attributeName="opacity" values="1;0;1" dur="1s" repeatCount="indefinite"/>')+'</rect>'}
+  return o;
+}
+function ciFrames(p){
+  var F=[],tag=p.broken?'a1f3c9e':'b72d04a',P='pass',R='run',I='idle',X='fail',pct=p.pct,hit=(pct*6/100).toFixed(1);
+  F.push(ci([P,I,I,I,I,I],0,tag,[['','$ git push origin main'],['dim','9c2e1b0..'+tag+'  main -> main'],['','→ pipeline #483 started']],mt('Commit','0:03','—','n','v1.8.3 live'),null));
+  F.push(ci([P,R,I,I,I,I],1,tag,[['','$ npm ci && npm run build'],['dim','compiling 86 modules…']],mt('Build','0:15','—','n','v1.8.3 live')));
+  F.push(ci([P,P,R,I,I,I],2,tag,[['','$ npm test'],['dim','running 128 tests…']],mt('Test','0:40','…','n','v1.8.3 live')));
+  if(p.broken){
+    F.push(ci([P,P,X,I,I,I],2,tag,[['bad','✗ api › checkout total'],['bad','  expected 42.00, got 41.99'],['bad','127 passed, 1 failed'],['dim','pipeline stopped. nothing was released.']],mt('Test','1:05','127/128','bad','v1.8.3 live','ok','bad')));
+    return F;
+  }
+  F.push(ci([P,P,P,I,I,I],2,tag,[['ok','✓ 128 passed, 0 failed']],mt('Test','1:05','128/128','ok','v1.8.3 live')));
+  F.push(ci([P,P,P,R,I,I],3,tag,[['','$ docker build -t registry/app:1.8.4 .'],['','$ docker push registry/app:1.8.4'],['dim','pushing layers…']],mt('Package','1:30','128/128','ok','v1.8.3 live')));
+  F.push(ci([P,P,P,P,R,I],4,tag,[['','$ kubectl apply -f staging/'],['dim','running smoke tests…']],mt('Staging','2:05','128/128','ok','v1.8.3 live')));
+  F.push(ci([P,P,P,P,P,R],5,tag,[['','canary: '+pct+'% of traffic → v1.8.4'],['dim','watching error rate for 2 minutes…']],mt('Prod canary','2:30','128/128','ok','v1.8.3 live'),pct));
+  if(p.bug){
+    F.push(ci([P,P,P,P,P,X],5,tag,[['bad','✗ error rate 6.0% (limit 1.0%)'],['bad','→ auto-rollback to v1.8.3'],['dim','requests affected: '+hit+'% of all traffic']],mt('Rollback','4:40','128/128','ok','Rolled back','bad','bad'),pct));
+  }else{
+    F.push(ci([P,P,P,P,P,P],5,tag,[['ok','✓ error rate 0.1% (limit 1.0%)'],['ok','promoted to 100%'],['','v1.8.4 is live']],mt('Done','4:40','128/128','ok','v1.8.4 live'),100));
+  }
+  return F;
+}
+LESSONS.push({
+  id:'pipeline',icon:'rocket',parts:[["commit", {}, "Commit", "A saved change that starts the pipeline."], ["gear", {}, "Build", "Turns code into something runnable."], ["flask", {}, "Test", "Automatic checks that catch bugs."], ["pkg", {}, "Package", "The artifact that gets released."], ["window", {}, "Staging", "A safe copy of production."], ["rocket", {}, "Production", "What real users see."]],name:'CI/CD pipeline',
+  blurb:'Follow one change from git push to production. See where a bad change is stopped and how a canary release limits the damage of a bug the tests missed.',
+  legend:[['c-ok','passed'],['c-run','running'],['c-bad','failed'],['c-idle','not reached']],
+  draw:drawCI,metrics:function(s){return s.m},
+  steps:[
+   {label:'Commit',tag:'SETUP',title:'A push starts the pipeline',
+    text:'You push commit a1f3c9e. A webhook tells the CI server, which checks out the code on a clean runner and starts the first stage. Nobody clicks anything.',
+    idea:'Continuous integration means every change is built and tested automatically, on a clean machine, not only on yours.',
+    scene:ci(['pass','idle','idle','idle','idle','idle'],0,'a1f3c9e',[['','$ git push origin main'],['dim','9c2e1b0..a1f3c9e  main -> main'],['','→ pipeline #483 started']],mt('Commit','0:03','—','n','v1.8.3 live'))},
+   {label:'Build',tag:'BUILD',title:'Build once, reuse the result',
+    text:'The runner installs dependencies and compiles the code into a build artifact. The same artifact moves through every later stage, so what you test is exactly what you ship.',
+    idea:'Build once, deploy many. Rebuilding for each environment can silently produce different results.',
+    scene:ci(['pass','run','idle','idle','idle','idle'],1,'a1f3c9e',[['','$ npm ci && npm run build'],['dim','added 412 packages in 9s'],['ok','✓ compiled 86 modules'],['dim','artifact: dist/ (1.4 MB)']],mt('Build','0:15','—','n','v1.8.3 live'))},
+   {label:'Test',tag:'TEST',title:'Automated tests are the gate',
+    text:'Unit tests, API tests and lint checks run in parallel. If everything is green the change moves on. If anything is red the pipeline stops here.',
+    idea:'Fast feedback matters. A pipeline that takes an hour gets skipped, so keep the quick tests first.',
+    scene:ci(['pass','pass','run','idle','idle','idle'],2,'a1f3c9e',[['','$ npm test'],['dim','unit     94 tests'],['dim','api      31 tests'],['dim','lint      3 checks'],['','running…']],mt('Test','0:40','…','n','v1.8.3 live'))},
+   {label:'Failure',tag:'FAIL',title:'A failing test stops the line',
+    text:'One API test fails: the checkout total is 41.99 instead of 42.00. The pipeline stops, Package, Staging and Prod never start, and users keep running v1.8.3. You see the failure in minutes, not from a customer.',
+    idea:'A red pipeline is the system working. The cost of the bug is one failed run.',
+    scene:ci(['pass','pass','fail','idle','idle','idle'],2,'a1f3c9e',[['bad','✗ api › checkout total'],['bad','  expected 42.00, got 41.99'],['bad','127 passed, 1 failed'],['dim','pipeline stopped. nothing was released.']],mt('Test','1:05','127/128','bad','v1.8.3 live','ok','bad'))},
+   {label:'Package',tag:'PACKAGE',title:'Fix it, push, and package an image',
+    text:'You fix the rounding bug and push commit b72d04a. All 128 tests pass, and the pipeline builds a container image tagged 1.8.4 and pushes it to the registry. The tag is immutable: 1.8.4 will always mean this exact image.',
+    idea:'Tag images with a version or commit hash. The tag latest tells you nothing about what is running.',
+    scene:ci(['pass','pass','pass','run','idle','idle'],3,'b72d04a',[['','$ docker build -t registry/app:1.8.4 .'],['','$ docker push registry/app:1.8.4'],['dim','digest: sha256:7be1…c40a']],mt('Package','1:30','128/128','ok','v1.8.3 live'))},
+   {label:'Staging',tag:'DEPLOY',title:'Staging is a rehearsal',
+    text:'The image is deployed to staging, an environment shaped like production but with no real users. Smoke tests call the live endpoints to check the app starts, connects to its database and answers.',
+    idea:'Staging catches configuration mistakes that unit tests cannot see, such as a missing environment variable.',
+    scene:ci(['pass','pass','pass','pass','run','idle'],4,'b72d04a',[['','$ kubectl apply -f staging/'],['dim','deployment "app" rolled out'],['','running smoke tests…']],mt('Staging','2:05','128/128','ok','v1.8.3 live'))},
+   {label:'Canary',tag:'RELEASE',title:'Release to 10% of users first',
+    text:'Production gets the new version for 10% of traffic. The pipeline watches the error rate. If it stays below the limit the release is promoted to everyone. If it rises, the pipeline rolls back automatically.',
+    idea:'A canary release limits the blast radius. A bug that tests missed hurts 10% of requests for two minutes instead of everyone.',
+    scene:ci(['pass','pass','pass','pass','pass','run'],5,'b72d04a',[['','canary: 10% of traffic → v1.8.4'],['dim','watching error rate for 2 minutes…'],['ok','✓ error rate 0.1% (limit 1.0%)']],mt('Prod canary','2:30','128/128','ok','v1.8.3 live'),10)},
+   {label:'Try it',tag:'PLAY',title:'Run the pipeline yourself',pg:true,
+    text:'Choose what goes wrong, then press Run. Break a test to see the pipeline stop. Ship a bug the tests miss and compare the damage between a 10% canary and a 100% release.',
+    idea:'Try "Ship a bug" with a 10% canary, then again at 100%. Compare the requests affected.'}
+  ],
+  pg:{
+   init:function(){return {broken:false,bug:false,pct:10,running:false,scene:ci(['idle','idle','idle','idle','idle','idle'],0,'a1f3c9e',[['dim','$ waiting for a push…']],mt('Idle','0:00','—','n','v1.8.3 live'))}},
+   scene:function(p){return p.scene},
+   fmt:{pct:function(v){return v+'%'}},
+   controls:function(p){return '<label class="ctl chk"><input type="checkbox" id="c-broken" data-k="broken"'+(p.broken?' checked':'')+'> Break a test</label>'+
+    '<label class="ctl chk"><input type="checkbox" id="c-bug" data-k="bug"'+(p.bug?' checked':'')+'> Ship a bug the tests miss</label>'+
+    '<label class="ctl"><span>Canary traffic <b id="v-pct">'+p.pct+'%</b></span><input type="range" id="c-pct" data-k="pct" min="5" max="100" step="5" value="'+p.pct+'"></label>'+
+    '<button class="btn run" type="button" data-act="run" id="c-run"'+(p.running?' disabled':'')+'>Run pipeline</button><p class="msg" id="pgmsg">Press Run to start a pipeline with these settings.</p>'},
+   set:function(p,k,v){p[k]=v},
+   act:function(p,a){
+     if(a!=='run'||p.running)return;
+     clearTimers();p.running=true;var F=ciFrames(p),i=0;
+     $('#c-run').disabled=true;$('#pgmsg').textContent='Running…';
+     (function tick(){
+       p.scene=F[i];renderStage();i++;
+       if(i<F.length)later(tick,900);
+       else{p.running=false;var b=$('#c-run');if(b)b.disabled=false;var mg=$('#pgmsg');
+         if(mg)mg.textContent=p.broken?'Stopped at Test. Nothing reached users.':(p.bug?'Rolled back. The bug reached '+(p.pct*6/100).toFixed(1)+'% of requests.':'Released to everyone.')}
+     })();
+   }
+  }
+});
+
+/* =========================================================
+   LESSON 3: Kubernetes self-healing
+   ========================================================= */
+function readyCount(s){return s.pods.filter(function(p){return p.s==='run'&&s.nodes[p.n]}).length}
+function k8sMetrics(s){
+  var r=readyCount(s),up=s.nodes.filter(Boolean).length;
+  return [['Desired',String(s.desired),'ok'],['Ready',r+'/'+s.desired,r<s.desired?'warn':'ok'],['Nodes up',up+'/3',up<3?'warn':'ok'],['Restarts',String(s.restarts),s.restarts>0?'warn':'ok']];
+}
+function drawK8s(s){
+  var o='',i,ready=readyCount(s),names=['node-a','node-b','node-c'];
+  o+=pop(box(18,14,604,44,'bx',10)+ic('gear',28,17,38,{spin:true})+T(76,42,'control plane','lbl')+T(606,42,'desired '+s.desired+' · ready '+ready,'lbl','end'));
+  if(ready<s.desired)o+=chip(350,36,'reconciling','c-queue');
+  for(i=0;i<3;i++){
+    var x=18+i*208,dead=!s.nodes[i],g='',podg='';
+    g+=box(x,80,188,252,'bx'+(dead?' dead':''),12)+ic('server',x+10,84,30,{led:dead?'f-red':'f-res',blink:!dead,dim:dead})+T(x+48,104,names[i],'lbl')+T(x+176,104,dead?'down':'up','lbl sm','end');
+    g+='<path d="M'+(x+10)+',118 L'+(x+178)+',118" class="ln" style="stroke:var(--line)"/>';
+    var list=s.pods.filter(function(p){return p.n===i});
+    list.forEach(function(p,j){
+      var px=x+12+(j%2)*86,py=128+Math.floor(j/2)*50;
+      var cls=p.s==='crash'?'pod-crash':(p.s==='wait'?'pod-wait':'pod-run'),f=p.s==='crash'?'f-bad':(p.s==='wait'?'f-wait':'f-ok');
+      var inner='<rect x="'+(px+3)+'" y="'+(py+3)+'" width="80" height="42" rx="7" class="shd"/><rect x="'+px+'" y="'+py+'" width="80" height="42" rx="7" class="bx '+cls+'" style="stroke-width:2"/>'+ic('pod',px+6,py+8,26,{f:f})+T(px+36,py+18,'web-'+p.id,'lbl xs')+T(px+36,py+34,p.v+(p.s==='crash'?' !':(p.s==='wait'?' ..':'')),'lbl sm');
+      if(p.s==='crash'&&!reduce)inner='<g><animateTransform attributeName="transform" type="translate" values="0 0;-2 0;2 0;0 0" dur=".4s" repeatCount="indefinite"/>'+inner+'</g>';
+      if(p.s==='wait'&&!reduce)inner='<g><animate attributeName="opacity" values="1;.45;1" dur="1.1s" repeatCount="indefinite"/>'+inner+'</g>';
+      podg+='<g opacity="'+(dead?0.55:1)+'">'+inner+'</g>';
+    });
+    if(dead)podg+='<path d="M'+(x+64)+',210 l60,60 m0,-60 l-60,60" class="cross" opacity=".7"/>';
+    o+=pop(g)+pop(podg);
+  }
+  return o;
+}
+function K(nodes,pods,desired,restarts){return {nodes:nodes,pods:pods.map(function(p){return {n:p[0],v:p[1],s:p[2],id:p[3]}}),desired:desired,restarts:restarts}}
+function leastNode(p){var best=-1,bc=1e9;for(var i=0;i<3;i++){if(!p.nodes[i])continue;var c=p.pods.filter(function(x){return x.n===i}).length;if(c<bc){bc=c;best=i}}return best}
+function kmsg(t){var e=$('#pgmsg');if(e)e.textContent=t}
+LESSONS.push({
+  id:'kubernetes',icon:'pod',parts:[["gear", {}, "Control plane", "The brain. Compares desired and actual state."], ["server", {}, "Node", "A machine that runs pods."], ["pod", {}, "Pod", "One running copy of your app."], ["pod", {"f": "f-bad"}, "Crashed pod", "Kubernetes replaces it automatically."]],name:'Kubernetes self-healing',
+  blurb:'You tell Kubernetes how many copies of an app you want. It keeps comparing that desired state with reality and fixes the difference. Break things and watch it repair them.',
+  legend:[['c-ok','running'],['c-bad','crashed'],['c-wait','starting or rescheduling'],['c-idle','node down']],
+  draw:drawK8s,metrics:k8sMetrics,
+  steps:[
+   {label:'Desired',tag:'SETUP',title:'You declare, Kubernetes reconciles',
+    text:'A Deployment says "I want 3 replicas of web". The scheduler places the three pods on different nodes. Nothing in this setup tells Kubernetes how to keep them running. It only knows the target.',
+    idea:'Declarative means you describe the end state. A controller loop works out the steps.',scene:K([1,1,1],[[0,'v1','run',1],[1,'v1','run',2],[2,'v1','run',3]],3,0)},
+   {label:'Crash',tag:'FAIL',title:'A container crashes',
+    text:'The app in web-2 hits an out-of-memory error and exits. Ready drops to 2 of 3, the Service stops sending traffic to that pod, and the control plane notices the gap between desired and actual.',
+    idea:'Readiness decides whether a pod receives traffic. A crashed pod is removed from the Service immediately.',scene:K([1,1,1],[[0,'v1','run',1],[1,'v1','crash',2],[2,'v1','run',3]],3,0)},
+   {label:'Restart',tag:'HEAL',title:'The kubelet restarts it',
+    text:'The kubelet on node-b restarts the container in place. After a few seconds web-2 passes its readiness probe and traffic returns. The restart counter goes up so you can spot a pod that keeps crashing.',
+    idea:'Repeated crashes use exponential back-off, shown as CrashLoopBackOff. Check logs and the last exit code.',scene:K([1,1,1],[[0,'v1','run',1],[1,'v1','run',2],[2,'v1','run',3]],3,1)},
+   {label:'Node lost',tag:'FAIL',title:'A whole node goes down',
+    text:'node-c loses power. Its pod web-3 is gone and Ready drops to 2 of 3. Kubernetes waits a short grace period in case the node comes back, then treats the pod as lost.',
+    idea:'Spreading replicas across nodes (and zones) is what turns one failed machine into a non-event.',scene:K([1,1,0],[[0,'v1','run',1],[1,'v1','run',2],[2,'v1','wait',3]],3,1)},
+   {label:'Reschedule',tag:'HEAL',title:'Pods are placed on healthy nodes',
+    text:'The controller creates a replacement pod, web-4, and the scheduler puts it on node-a, a node with room. You are back at 3 of 3 without anyone logging in.',
+    idea:'Pods are disposable. They are replaced, never repaired, which is why state belongs in volumes or databases.',scene:K([1,1,0],[[0,'v1','run',1],[1,'v1','run',2],[0,'v1','run',4]],3,1)},
+   {label:'Scale',tag:'SCALE',title:'Scaling is changing one number',
+    text:'node-c is repaired and you change replicas from 3 to 6. The scheduler spreads the new pods so every node carries two. A HorizontalPodAutoscaler can change that number for you based on CPU.',
+    idea:'kubectl scale deploy/web --replicas=6 edits the desired state. The loop does the rest.',scene:K([1,1,1],[[0,'v1','run',1],[1,'v1','run',2],[2,'v1','run',5],[0,'v1','run',4],[1,'v1','run',6],[2,'v1','run',7]],6,1)},
+   {label:'Rollout',tag:'RELEASE',title:'A rolling update swaps pods gradually',
+    text:'You ship v2. Kubernetes starts a v2 pod, waits until it is ready, then stops a v1 pod, and repeats. At most one pod is unavailable at a time, so users never see downtime. A bad v2 that never becomes ready stops the rollout.',
+    idea:'kubectl rollout undo deploy/web returns to the previous version if v2 misbehaves.',scene:K([1,1,1],[[0,'v2','run',8],[1,'v2','run',9],[2,'v2','wait',10],[0,'v1','run',4],[1,'v1','run',6],[2,'v1','run',7]],6,1)},
+   {label:'Try it',tag:'PLAY',title:'Break the cluster',pg:true,
+    text:'Kill pods and nodes, change the replica count and start a rollout. After every action, watch Ready fall below Desired and then recover on its own.',
+    idea:'Kill two nodes in a row. With one node left the pods all pack onto it, and nothing is lost.'}
+  ],
+  pg:{
+   init:function(){return {nodes:[1,1,1],pods:[{n:0,v:'v1',s:'run',id:1},{n:1,v:'v1',s:'run',id:2},{n:2,v:'v1',s:'run',id:3}],desired:3,restarts:0,nextId:4}},
+   scene:function(p){return p},
+   fmt:{desired:function(v){return String(v)}},
+   controls:function(p){return '<label class="ctl"><span>Replicas <b id="v-desired">'+p.desired+'</b></span><input type="range" id="c-desired" data-k="desired" min="1" max="8" step="1" value="'+p.desired+'"></label>'+
+    '<button class="btn" type="button" data-act="pod">Crash a pod</button><button class="btn" type="button" data-act="node">Kill a node</button><button class="btn" type="button" data-act="repair">Repair nodes</button><button class="btn run" type="button" data-act="roll">Roll out v2</button><p class="msg" id="pgmsg">Try an action and watch the Ready counter.</p>'},
+   set:function(p,k,v){
+     if(k!=='desired')return;
+     while(p.pods.length<v){var n=leastNode(p);p.pods.push({n:n,v:p.pods.length&&p.pods[0].v==='v2'?'v2':'v1',s:'run',id:p.nextId++})}
+     while(p.pods.length>v)p.pods.pop();
+     p.desired=v;kmsg('Replica count changed to '+v+'. The scheduler places or removes pods to match.');
+   },
+   act:function(p,a){
+     var i;
+     if(a==='pod'){
+       var run=p.pods.filter(function(x){return x.s==='run'&&p.nodes[x.n]});
+       if(!run.length){kmsg('No running pod to crash.');return}
+       var pd=run[Math.floor(Math.random()*run.length)];pd.s='crash';
+       kmsg('web-'+pd.id+' crashed. The kubelet restarts the container in place.');renderStage();
+       later(1000,function(){if(pd.s==='crash'&&p.nodes[pd.n]&&p.pods.indexOf(pd)>-1){pd.s='run';p.restarts++;kmsg('web-'+pd.id+' restarted and is ready again.');renderStage()}});
+     }else if(a==='node'){
+       var alive=[];p.nodes.forEach(function(v,j){if(v)alive.push(j)});
+       if(alive.length<2){kmsg('Only one node is left. Repair nodes first.');return}
+       var d=alive[Math.floor(Math.random()*alive.length)];p.nodes[d]=0;
+       p.pods.forEach(function(x){if(x.n===d)x.s='wait'});
+       kmsg('node-'+'abc'[d]+' is down. Its pods are lost and will be rescheduled.');renderStage();
+       later(1500,function(){
+         var moved=0;
+         p.pods.forEach(function(x){if(!p.nodes[x.n]){x.n=leastNode(p);x.s='run';x.id=p.nextId++;moved++}});
+         if(moved)kmsg(moved+' pod'+(moved>1?'s':'')+' recreated on healthy nodes.');renderStage();
+       });
+     }else if(a==='repair'){
+       p.nodes=[1,1,1];kmsg('All nodes are back. Existing pods stay where they are.');renderStage();
+     }else if(a==='roll'){
+       var list=p.pods.filter(function(x){return x.v==='v1'});
+       if(!list.length){kmsg('Everything already runs v2.');return}
+       kmsg('Rolling out v2, one pod at a time…');
+       list.forEach(function(x,k){
+         later(k*1000,function(){if(p.pods.indexOf(x)<0)return;x.v='v2';x.s='wait';renderStage()});
+         later(k*1000+550,function(){if(p.pods.indexOf(x)<0)return;if(x.s==='wait'&&p.nodes[x.n])x.s='run';renderStage();if(k===list.length-1)kmsg('Rollout complete. Every pod runs v2.')});
+       });
+     }
+   }
+  }
+});
+
+/* =========================================================
+   UI
+   ========================================================= */
+/* ---------- NEW LESSONS: Git, Docker, EC2, S3 ---------- */
+
+/* ===== Git ===== */
+function gitReach(cs,i,set){set=set||{};if(i<0||set[i])return set;set[i]=1;cs[i].p.forEach(function(q){gitReach(cs,q,set)});return set}
+function GC(h,l,p,k){return {h:h,l:l,p:p||[],k:k||''}}
+function gz(wd,st,repo,rem){return {wd:wd,st:st,repo:repo,rem:rem}}
+function gs(z,arrow,c,tags,m){return {z:z,arrow:arrow,c:c,tags:tags,m:m}}
+function gmt(branch,commits,ahead,tree,ts){return [['Branch',branch,'n'],['Commits',String(commits),'n'],['Ahead of remote',String(ahead),ahead?'warn':'ok'],['Working tree',tree,ts||'ok']]}
+function drawGit(s){
+  var o='',i,names=['Working dir','Staging area','Local repo','Remote'],cmd=['add','commit','push'],zic=['folder','clipboard','db','cloud'];
+  var content=[s.z.wd,s.z.st,[s.z.repo],[s.z.rem]];
+  for(i=0;i<4;i++){
+    var x=16+i*168,g=box(x,14,112,90,'bx'+(i===3?' pad':''),10)+T(x+12,36,names[i],'lbl xs')+ic(zic[i],x+74,58,32);
+    content[i].slice(0,3).forEach(function(t,j){g+=T(x+12,62+j*18,t,'lbl sm')});
+    o+=pop(g);
+  }
+  for(i=0;i<3;i++){
+    var ax=16+i*168+116,bx=16+(i+1)*168-4,on=s.arrow===i;
+    o+='<path d="M'+ax+',59 L'+bx+',59 m-8,-6 l8,6 l-8,6" class="ln'+(on?' flow':'')+'"/>'+T((ax+bx)/2,48,cmd[i],'lbl xs','middle');
+    if(on)o+=packet('M'+ax+',59 L'+bx+',59',1.2,0,'c-req');
+  }
+  var n=s.c.length,dx=n>1?Math.min(70,540/(n-1)):0;
+  function X(k){return 50+k*dx}
+  function Y(l){return l?316:236}
+  s.c.forEach(function(c,k){c.p.forEach(function(q){
+    var a=s.c[q];
+    if(a.l===c.l)o+='<path d="M'+X(q)+','+Y(a.l)+' L'+X(k)+','+Y(c.l)+'" class="ln"/>';
+    else o+='<path d="M'+X(q)+','+Y(a.l)+' C'+(X(q)+dx*0.6)+','+Y(a.l)+' '+(X(k)-dx*0.6)+','+Y(c.l)+' '+X(k)+','+Y(c.l)+'" class="ln"/>';
+  })});
+  s.c.forEach(function(c,k){
+    var cls=c.k==='new'?'st-run':(c.k==='merge'?'st-pass':(c.k==='revert'?'st-fail':'')),g2='';
+    if(c.k==='new'&&!reduce)g2+='<circle cx="'+X(k)+'" cy="'+Y(c.l)+'" r="16" fill="none" stroke="var(--req)" stroke-width="2.5"><animate attributeName="r" values="16;30" dur="1.3s" repeatCount="indefinite"/><animate attributeName="opacity" values=".9;0" dur="1.3s" repeatCount="indefinite"/></circle>';
+    g2+='<circle cx="'+X(k)+'" cy="'+Y(c.l)+'" r="16" class="bx '+cls+'"/>'+T(X(k),Y(c.l)+4,c.h,'lbl xs','middle');
+    o+=pop(g2);
+  });
+  var stack={},tl='',tc='';
+  s.tags.forEach(function(t){
+    var c=s.c[t.c],side=t.s||(/^feature/.test(t.t)?'down':'up'),key=t.c+side,k=stack[key]||0;stack[key]=k+1;
+    var cy=side==='up'?Y(c.l)-38-k*32:Y(c.l)+38+k*32,txt=(t.head?'HEAD → ':'')+t.t,cw=Math.round(txt.length*8+26),cx=clamp(X(t.c),cw/2+6,640-cw/2-6);
+    tl+='<path d="M'+X(t.c)+','+(side==='up'?Y(c.l)-17:Y(c.l)+17)+' L'+X(t.c)+','+(side==='up'?cy+14:cy-14)+'" class="ln" style="stroke-width:1.6"/>';
+    tc+=chip(cx,cy,txt,null,!!t.remote);
+  });
+  return o+tl+tc;
+}
+function gitStatic(){
+  var A=function(){return GC('a1f',0)},B=function(){return GC('b2c',0,[0])},C=function(k){return GC('c3d',0,[1],k)};
+  var mainHead=function(c){return {c:c,t:'main',head:1}},org=function(c){return {c:c,t:'origin/main',remote:1}};
+  return [
+   gs(gz(['app.py','(edited)'],[],'2 commits','2 commits'),-1,[A(),B()],[mainHead(1),org(1)],gmt('main',2,0,'modified','warn')),
+   gs(gz(['app.py'],['app.py','(staged)'],'2 commits','2 commits'),0,[A(),B()],[mainHead(1),org(1)],gmt('main',2,0,'staged','warn')),
+   gs(gz(['app.py'],[],'3 commits','2 commits'),1,[A(),B(),C('new')],[mainHead(2),org(1)],gmt('main',3,1,'clean')),
+   gs(gz(['app.py'],[],'3 commits','3 commits'),2,[A(),B(),C()],[mainHead(2),org(2)],gmt('main',3,0,'clean')),
+   gs(gz(['app.py'],[],'5 commits','3 commits'),-1,[A(),B(),C(),GC('f4a',1,[2]),GC('f5b',1,[3],'new')],[{c:2,t:'main'},org(2),{c:4,t:'feature/login',head:1}],gmt('feature/login',5,2,'clean')),
+   gs(gz(['app.py'],[],'6 commits','3 commits'),-1,[A(),B(),C(),GC('f4a',1,[2]),GC('f5b',1,[3]),GC('9ab',0,[2,4],'merge')],[mainHead(5),org(2),{c:4,t:'feature/login'}],gmt('main',6,3,'clean')),
+   gs(gz(['app.py'],[],'5 commits','4 commits'),-1,[A(),B(),C(),GC('d4e',0,[2]),GC('e5f',0,[3],'revert')],[mainHead(4),org(3)],gmt('main',5,1,'clean'))
+  ];
+}
+var GIT_HASH=['c3d','d4e','e5f','f6a','a7b','b8c','c9d','d0e','e1f','f2a','a3b','b4c'];
+function gitInit(){return {c:[GC('a1f',0),GC('b2c',0,[0])],tips:{main:1,feature:-1},cur:'main',pushed:1,arrow:-1}}
+function gitScene(p){
+  var cs=p.c,all={},k;
+  ['main','feature'].forEach(function(b){if(p.tips[b]>-1)gitReach(cs,p.tips[b],all)});
+  var rp=gitReach(cs,p.pushed,{}),ahead=0;
+  for(k in all)if(!rp[k])ahead++;
+  var tags=[{c:p.tips.main,t:'main',head:p.cur==='main'},{c:p.pushed,t:'origin/main',remote:1}];
+  if(p.tips.feature>-1)tags.push({c:p.tips.feature,t:'feature/login',head:p.cur==='feature'});
+  return {z:gz(['app.py'],[],cs.length+' commits',Object.keys(rp).length+' commits'),arrow:p.arrow,c:cs,tags:tags,m:gmt(p.cur==='main'?'main':'feature/login',cs.length,ahead,'clean')};
+}
+(function(){
+  var G=gitStatic();
+  LESSONS.push({
+    id:'git',icon:'branch',parts:[["folder", {}, "Working directory", "The files you edit."], ["clipboard", {}, "Staging area", "What goes into the next commit."], ["db", {}, "Local repository", "Full history on your machine."], ["cloud", {}, "Remote", "The shared copy, for example GitHub."], ["commit", {}, "Commit", "A saved snapshot."], ["branch", {}, "Branch", "A movable label on a line of work."]],group:'Code',name:'Git',
+    blurb:'Follow a change through the working directory, staging area and local repository to the remote, then branch, merge and undo with a live commit graph.',
+    legend:[['c-run','new commit'],['c-ok','merge commit'],['c-bad','revert commit'],['c-idle','dashed label = remote']],
+    draw:drawGit,metrics:function(s){return s.m},
+    steps:[
+     {label:'Edit',tag:'SETUP',title:'Your files live in three places',text:'You edited app.py in your working directory. Git does not track that change yet. A commit is built in two moves: stage the changes you want, then commit them.',idea:'The staging area lets you build a commit from only the changes you choose.',scene:G[0]},
+     {label:'Stage',tag:'ADD',title:'git add stages a change',text:'git add copies the edited file into the staging area. Nothing is saved to history yet, and you can still unstage it.',idea:'git status always tells you which of the three places each file is in.',scene:G[1]},
+     {label:'Commit',tag:'COMMIT',title:'git commit saves a snapshot',text:'git commit turns what is staged into a commit: a snapshot with a hash, an author, a message and a pointer to its parent. Your local history now has 3 commits, one more than the remote.',idea:'A commit is a full snapshot, not a diff. Git stores it efficiently by sharing unchanged files.',scene:G[2]},
+     {label:'Push',tag:'PUSH',title:'git push shares your commits',text:'git push sends your new commits to the remote so teammates can pull them. The origin/main label moves to your latest commit.',idea:'Until you push, your commits exist only on your machine.',scene:G[3]},
+     {label:'Branch',tag:'BRANCH',title:'Branches are cheap pointers',text:'git switch -c feature/login creates a branch at your current commit and moves HEAD to it. After two commits on it, main has not moved. A branch is just a movable label on a commit.',idea:'Branch freely. Creating a branch copies nothing; it only adds a pointer.',scene:G[4]},
+     {label:'Merge',tag:'MERGE',title:'Merge joins two histories',text:'Back on main, git merge feature/login creates a merge commit with two parents. Both lines of history are kept.',idea:'If main has not moved, Git can fast-forward and skip the merge commit. Use --no-ff to always record one.',scene:G[5]},
+     {label:'Undo',tag:'UNDO',title:'Undo safely with revert',text:'Commit d4e was already pushed and turned out to be bad. git revert d4e adds a new commit that undoes it. History is preserved, so teammates who already pulled are not affected.',idea:'git reset rewrites history, so use it on local work only. Use git revert on anything you have shared.',scene:G[6]},
+     {label:'Try it',tag:'PLAY',title:'Build your own history',pg:true,text:'Commit, branch, merge, revert and push in any order. Watch the commit graph, the branch labels and the Ahead of remote counter change.',idea:'Make two commits on feature, one on main, then merge. Then revert the last commit.'}
+    ],
+    pg:{
+     init:gitInit,scene:gitScene,
+     controls:function(){return '<button class="btn" type="button" data-act="commit">Commit</button><button class="btn" type="button" data-act="branch">New branch / switch</button><button class="btn" type="button" data-act="merge">Merge feature into main</button><button class="btn" type="button" data-act="revert">Revert last commit</button><button class="btn run" type="button" data-act="push">Push</button><button class="btn" type="button" data-act="reset">Reset</button><p class="msg" id="pgmsg">Start with Commit, then create a branch.</p>'},
+     set:function(){},
+     act:function(p,a){
+       var cs=p.c,idx;
+       cs.forEach(function(c){if(c.k==='new')c.k=''});
+       p.arrow=-1;
+       function add(k,l,par){if(cs.length>=12){kmsg('The graph is full. Press Reset.');return -1}cs.push(GC(GIT_HASH[cs.length%GIT_HASH.length],l,par,k));return cs.length-1}
+       if(a==='commit'){
+         idx=add('new',p.cur==='main'?0:1,[p.tips[p.cur]]);
+         if(idx>-1){p.tips[p.cur]=idx;p.arrow=1;kmsg('Committed on '+(p.cur==='main'?'main':'feature/login')+'. The branch label moved forward.')}
+       }else if(a==='branch'){
+         if(p.tips.feature===-1){p.tips.feature=p.tips[p.cur];p.cur='feature';kmsg('Created feature/login at the current commit and switched to it.')}
+         else{p.cur=p.cur==='main'?'feature':'main';kmsg('Switched to '+(p.cur==='main'?'main':'feature/login')+'. New commits go on this branch.')}
+       }else if(a==='merge'){
+         if(p.tips.feature===-1){kmsg('Create the feature branch first.')}
+         else if(gitReach(cs,p.tips.main)[p.tips.feature]){kmsg('Already up to date. Commit on feature first.')}
+         else{idx=add('merge',0,[p.tips.main,p.tips.feature]);if(idx>-1){p.tips.main=idx;p.cur='main';kmsg('Merged feature/login into main with a merge commit.')}}
+       }else if(a==='revert'){
+         var tip=p.tips[p.cur];
+         if(!cs[tip].p.length){kmsg('Nothing to revert yet.')}
+         else{idx=add('revert',p.cur==='main'?0:1,[tip]);if(idx>-1){p.tips[p.cur]=idx;kmsg('Added a revert commit. The old commit stays in history.')}}
+       }else if(a==='push'){
+         p.pushed=p.tips.main;p.arrow=2;kmsg('Pushed main. origin/main now points at your latest main commit.');
+       }else if(a==='reset'){
+         var f=gitInit();for(var key in f)p[key]=f[key];kmsg('History reset.');
+       }
+     }
+    }
+  });
+})();
+
+/* ===== Docker ===== */
+var DF=['FROM node:20-slim','WORKDIR /app','COPY package*.json ./','RUN npm ci','COPY . .','CMD ["node","app.js"]'];
+function dmt(size,layers,ctrs,build,ss){return [['Image size',size,ss||'n'],['Layers',layers,'n'],['Containers',ctrs,'n'],['Build time',build,'n']]}
+function drawDocker(s){
+  var o='',i;
+  var d=box(16,16,196,186,'bx pad',10)+T(30,38,'Dockerfile','lbl xs')+ic('file',172,20,28,{t:'doc'});
+  DF.forEach(function(t,k){
+    var y=62+k*22;
+    if(s.hl.indexOf(k)>-1)d+='<rect x="22" y="'+(y-14)+'" width="184" height="20" rx="4" fill="var(--runbg)" stroke="var(--req)" stroke-width="1.5"/>';
+    d+=T(30,y,t,'lbl sm');
+  });
+  o+=pop(d);
+  var L=s.layers,stMap={'new':'st-run','cached':'st-pass','dirty':'st-wait'};
+  L.forEach(function(l,k){
+    var y=292-k*32;
+    o+=pop('<rect x="246" y="'+y+'" width="160" height="28" rx="6" class="bx '+(stMap[l[2]]||'')+'" style="stroke-width:2"/>'+T(256,y+18,l[0],'lbl sm')+T(396,y+18,l[1],'lbl xs','end'));
+  });
+  if(L.length){
+    var topY=292-(L.length-1)*32;
+    o+=T(326,334,'read-only layers','lbl sm','middle');
+    if(s.tag)o+=pop(chip(326,topY-26,s.tag)+ic('layers',246,topY-40,28));
+  }
+  var tot=s.n+s.gone,h=tot<=3?50:(tot<=4?42:34),g=tot<=4?10:8,y0=84,bottom=y0+tot*(h+g)-g;
+  if(s.reg){
+    o+='<path d="M406,200 C424,200 424,90 440,90" class="ln flow"/>'+packet('M406,200 C424,200 424,90 440,90',1.6,0,'c-req');
+    o+=pop(box(440,40,184,96,'bx pad',12)+ic('cloud',452,46,38)+T(498,70,'registry','lbl xs')+chip(532,106,'app:1.1'));
+    o+=pop(box(440,190,184,120,'bx',12)+ic('server',452,196,34,{blink:true})+T(494,218,'server B','lbl xs'));
+    if(s.reg===2){o+='<path d="M532,136 L532,190" class="ln flow"/>'+packet('M532,136 L532,190',1.2,0,'c-res')+chip(532,258,'app:1.1')+chip(532,292,'running','c-res')}
+  }else if(tot){
+    if(s.port)o+=chip(538,50,'host :8080 → :3000');
+    for(i=0;i<tot;i++){var gone0=i<s.gone,yy=y0+i*(h+g)+h/2;o+='<path d="M406,228 C430,228 430,'+yy+' 452,'+yy+'" class="ln'+(gone0?' dead':'')+'"/>'}
+    for(i=0;i<tot;i++){
+      var gone=i<s.gone,y=y0+i*(h+g),isz=h>=50?30:(h>=42?28:24);
+      var cg=box(452,y,172,h,'bx'+(gone?' dead':' st-pass'),8)+ic('container',460,y+(h-isz)/2,isz,{dim:gone});
+      if(gone)cg+=T(500,y+h/2+5,'removed','lbl sm');
+      else{
+        cg+=T(500,y+(h>=50?20:(h>=42?18:15)),'container '+(i-s.gone+1),'lbl xs');
+        if(h>=50)cg+=T(500,y+36,'writable layer','lbl sm');
+        cg+='<rect x="500" y="'+(y+h-11)+'" width="114" height="6" rx="3" class="pk c-queue"/>';
+      }
+      o+=pop(cg);
+    }
+    if(s.vol)o+=pop('<path d="M538,'+bottom+' L538,'+(bottom+30)+'" class="ln"/>'+ic('disk',521,bottom+30,34)+T(538,bottom+82,'volume: db-data','lbl xs','middle'));
+  }
+  if(s.cmd){
+    o+='<rect x="16" y="346" width="608" height="26" rx="6" class="term"/>'+T(30,364,'$ '+s.cmd,'tl');
+    o+='<rect x="'+Math.round(30+(s.cmd.length+2)*7.85+5)+'" y="352" width="8" height="14" fill="#6ee7a8">'+(reduce?'':'<animate attributeName="opacity" values="1;0;1" dur="1s" repeatCount="indefinite"/>')+'</rect>';
+  }
+  return o;
+}
+function dl(st){return [['node:20-slim','240 MB',st[0]],['WORKDIR','0 B',st[1]],['package.json','1 MB',st[2]],['npm ci','110 MB',st[3]],['app code','5 MB',st[4]]]}
+function fmtMB(mb){return mb>=1000?(mb/1000).toFixed(2)+' GB':mb+' MB'}
+function dockerScene(p){
+  var base=p.slim?240:1100,deps=p.multi?45:110,total=base+1+deps+5;
+  return {hl:[],layers:[[p.slim?'node:20-slim':'node:20',fmtMB(base),''],['WORKDIR','0 B',''],['package.json','1 MB',''],[p.multi?'deps (prod)':'npm ci',fmtMB(deps),''],['app code','5 MB','']],tag:'app:1.1',n:p.n,gone:0,port:false,vol:false,reg:0,cmd:'docker compose up --scale web='+p.n,
+    m:[['Image size',fmtMB(total),total>800?'warn':'ok'],['Containers',String(p.n),'n'],['Disk used',fmtMB(total+p.n*2),'ok'],['As VMs','≈ '+(p.n*2)+' GB','warn']]};
+}
+LESSONS.push({
+  id:'docker',icon:'container',parts:[["file", {"t": "doc"}, "Dockerfile", "The recipe for an image."], ["layers", {}, "Image", "Read-only layers stacked from the recipe."], ["container", {}, "Container", "A running instance of an image."], ["cloud", {}, "Registry", "Where images are stored and shared."], ["server", {}, "Host", "The machine that runs containers."], ["disk", {}, "Volume", "Storage that survives a container."]],group:'Containers',name:'Docker',
+  blurb:'See how a Dockerfile becomes layers, why builds are cached, how containers share an image, and how volumes and registries fit in.',
+  legend:[['c-run','new layer'],['c-ok','cached layer or running container'],['c-wait','rebuilt layer'],['c-queue','writable layer']],
+  draw:drawDocker,metrics:function(s){return s.m},
+  steps:[
+   {label:'Dockerfile',tag:'SETUP',title:'A Dockerfile is a recipe',text:'A Dockerfile lists the steps to build an image: start from a base image, copy files in, install dependencies and say what to run. Each instruction becomes one read-only layer.',idea:'FROM picks the base. RUN, COPY and ADD each create a layer. CMD only records the default command.',
+    scene:{hl:[],layers:[],tag:'',n:0,gone:0,port:false,vol:false,reg:0,cmd:'',m:dmt('—','0','0','—')}},
+   {label:'Build',tag:'BUILD',title:'Build stacks the layers into an image',text:'docker build runs the instructions in order and stacks the results into an image tagged app:1.0. The five layers add up to about 356 MB, most of it the base image.',idea:'An image is a stack of read-only layers plus metadata. It does not run by itself.',
+    scene:{hl:[],layers:dl(['new','new','new','new','new']),tag:'app:1.0',n:0,gone:0,port:false,vol:false,reg:0,cmd:'docker build -t app:1.0 .',m:dmt('356 MB','5','0','58 s')}},
+   {label:'Cache',tag:'CACHE',title:'Unchanged layers come from cache',text:'You change one line of application code and build again. Docker reuses the four unchanged layers and rebuilds only the last one, so the build takes seconds. This is why package.json is copied before the source code.',idea:'Order instructions from least to most frequently changed to get the best cache hits.',
+    scene:{hl:[4],layers:dl(['cached','cached','cached','cached','dirty']),tag:'app:1.1',n:0,gone:0,port:false,vol:false,reg:0,cmd:'docker build -t app:1.1 .',m:dmt('356 MB','5','0','3 s','ok')}},
+   {label:'Run',tag:'RUN',title:'A container is a running image',text:'docker run starts a container from the image. Docker adds a thin writable layer on top and publishes container port 3000 on host port 8080. The image itself never changes.',idea:'Many containers can run from one image. They share the read-only layers.',
+    scene:{hl:[],layers:dl(['','','','','']),tag:'app:1.1',n:1,gone:0,port:true,vol:false,reg:0,cmd:'docker run -d -p 8080:3000 app:1.1',m:dmt('356 MB','5','1','—')}},
+   {label:'Volume',tag:'DATA',title:'Keep data in a volume',text:'The first container was removed, and everything in its writable layer went with it. The new container mounts a named volume, which lives outside any container, so the data is still there.',idea:'Containers are disposable. Put anything you need to keep in a volume or an external database.',
+    scene:{hl:[],layers:dl(['','','','','']),tag:'app:1.1',n:1,gone:1,port:false,vol:true,reg:0,cmd:'docker run -d -v db-data:/data app:1.1',m:[['Image size','356 MB','n'],['Containers','1 running','ok'],['Old container','removed','warn'],['Volume data','kept','ok']]}},
+   {label:'Registry',tag:'SHARE',title:'A registry shares images',text:'docker push uploads the image to a registry. Another server runs docker pull and gets exactly the same layers, so the app behaves the same everywhere.',idea:'Registries store images by name and tag. Pin a version tag, because latest can change under you.',
+    scene:{hl:[],layers:dl(['','','','','']),tag:'app:1.1',n:0,gone:0,port:false,vol:false,reg:2,cmd:'docker push registry.io/team/app:1.1',m:[['Pushed','app:1.1','ok'],['Pulled by','server B','ok'],['Layers sent','changed only','n'],['Same image','yes','ok']]}},
+   {label:'Try it',tag:'PLAY',title:'Shrink the image, scale the containers',pg:true,text:'Add containers and see how little extra disk they cost. Switch the base image and the build style to shrink the image, then compare with the As VMs figure.',idea:'Slim or alpine bases and multi-stage builds cut image size, which speeds up pulls and deploys.'}
+  ],
+  pg:{
+   init:function(){return {n:3,slim:true,multi:false}},scene:dockerScene,
+   controls:function(p){return '<label class="ctl"><span>Containers <b id="v-n">'+p.n+'</b></span><input type="range" id="c-n" data-k="n" min="1" max="6" step="1" value="'+p.n+'"></label>'+
+    '<label class="ctl chk"><input type="checkbox" id="c-slim" data-k="slim"'+(p.slim?' checked':'')+'> Slim base image</label>'+
+    '<label class="ctl chk"><input type="checkbox" id="c-multi" data-k="multi"'+(p.multi?' checked':'')+'> Multi-stage build</label>'},
+   set:function(p,k,v){p[k]=v},act:function(){}
+  }
+});
+
+/* ===== AWS EC2 ===== */
+var EC2T=[['t3.micro',2,1,0.0104],['t3.medium',2,4,0.0416],['t3.large',2,8,0.0832],['m6i.xlarge',4,16,0.192],['c6i.2xlarge',8,16,0.34],['r6i.2xlarge',8,64,0.504]];
+var EC2_BUY=['On-demand','Savings plan','Spot'],EC2_MULT=[1,0.7,0.35];
+function drawEC2(s){
+  var o='',i;
+  if(s.buy){
+    var rows=[['On-demand','$0.083 / hr',1,'c-req','pay by the second, no commitment'],['Savings plan','≈ $0.058 / hr',0.7,'c-res','commit to 1 or 3 years'],['Spot','≈ $0.029 / hr',0.35,'c-slow','can be interrupted with 2 minutes notice']];
+    o+=chip(330,24,'t3.large · Linux · us-east-1 (approx.)');
+    rows.forEach(function(r,k){
+      var y=74+k*100,w=Math.round(400*r[2]);
+      o+=pop(T(30,y,r[0],'lbl')+'<rect x="30" y="'+(y+12)+'" width="'+w+'" height="26" rx="6" class="pk '+r[3]+'">'+(still?'':'<animate attributeName="width" from="0" to="'+w+'" dur=".7s" fill="freeze"/>')+'</rect>'+T(30+w+12,y+31,r[1],'lbl')+T(30,y+58,r[4],'lbl sm'));
+    });
+    return o;
+  }
+  var vpc=s.vpc,ix=vpc?280:300,iy=vpc?118:130,iw=160,ih=100;
+  if(vpc){
+    o+=pop('<rect x="214" y="14" width="410" height="352" rx="14" class="zone"/>'+ic('cloud',222,16,30)+T(258,38,'VPC 10.0.0.0/16','lbl sm')+'<rect x="228" y="48" width="382" height="306" rx="10" class="subnet"/>'+T(242,70,'public subnet 10.0.1.0/24','lbl sm'));
+    (s.req||[]).forEach(function(r){
+      var yy=iy+16+r.k*34,ex=r.ok?ix:ix-14,d='M102,190 L194,190 C236,190 '+(ix-50)+','+yy+' '+ex+','+yy;
+      o+='<path d="'+d+'" class="ln'+(r.ok?'':' dead')+'"/>';
+      if(r.ok)o+=packet(d,2,r.k*0.5,'c-req');else o+='<path d="M'+(ex-6)+','+(yy-7)+' l12,14 m0,-14 l-12,14" class="cross"/>';
+    });
+    o+=pop(box(16,150,86,80,'bx pad',12)+ic('laptop',29,158,60)+T(59,224,'you','lbl sm','middle'));
+    o+=pop(box(124,168,70,44,'bx',8)+ic('globe',130,175,30)+T(176,195,'IGW','lbl xs','middle')+T(159,236,'gateway','lbl sm','middle'));
+  }else{
+    var d1='M212,170 C256,170 256,'+(iy+30)+' '+ix+','+(iy+30),d2='M212,206 C256,206 256,'+(iy+70)+' '+ix+','+(iy+70);
+    o+='<path d="'+d1+'" class="ln flow"/><path d="'+d2+'" class="ln flow"/>'+chip(130,170,'AMI: Amazon Linux')+chip(130,206,'type: '+s.type);
+  }
+  if(s.sg){
+    o+=pop('<rect x="'+(ix-14)+'" y="'+(iy-14)+'" width="'+(iw+28)+'" height="'+(ih+28)+'" rx="12" class="zone sg"/>'+ic('shield',ix-14,iy-44,26)+T(ix+16,iy-25,'security group','lbl sm'));
+    var rl=[[s.sg.ssh===2?'SSH · any IP':(s.sg.ssh===1?'SSH · my IP':'SSH closed'),s.sg.ssh],['HTTP 80',s.sg.http],['MySQL 3306',s.sg.db]];
+    rl.forEach(function(r,k){
+      var txt=r[0],w=txt.length*8+38,dot=r[1]===0?'c-bad':(r[1]===2?'c-slow':'c-res');
+      o+=chip(470+w/2,iy+16+k*34,txt,dot);
+    });
+  }
+  var stc=s.st==='running'?'st-pass':(s.st==='pending'?'st-run':'dead'),ledc=s.st==='running'?'f-res':(s.st==='pending'?'f-queue':'f-red');
+  o+=pop(box(ix,iy,iw,ih,'bx '+stc,10)+T(ix+12,iy+22,'EC2 instance','lbl xs')+T(ix+12,iy+44,s.type,'lbl')+T(ix+12,iy+64,s.vcpu+' vCPU · '+s.mem+' GiB','lbl sm')+ic('server',ix+112,iy+8,40,{led:ledc,blink:s.st==='running',dim:s.st==='stopped'})+'<circle cx="'+(ix+16)+'" cy="'+(iy+84)+'" r="5" class="pk '+(s.st==='running'?'c-res':(s.st==='pending'?'c-queue':'c-bad'))+'"/>'+T(ix+28,iy+88,s.st,'lbl sm'));
+  if(s.ebs)o+=pop('<path d="M'+(ix+80)+','+(iy+ih)+' L'+(ix+80)+','+(iy+ih+52)+'" class="ln"/>'+box(ix+8,iy+ih+52,148,34,'bx',8)+ic('disk',ix+14,iy+ih+54,30)+T(ix+50,iy+ih+74,'EBS 8 GB gp3','lbl xs'));
+  if(s.ip)o+=chip(ix+80,iy+ih+36,'private 10.0.1.25')+chip(ix+80,iy+ih+72,'public 3.91.40.12');
+  return o;
+}
+function ec2Scene(p){
+  var t=EC2T[p.ti],price=t[3]*EC2_MULT[p.buy],mo=price*730,exp=p.db?['DB open to internet','bad']:(p.ssh?['SSH open to world','warn']:['locked down','ok']);
+  return {st:'running',type:t[0],vcpu:t[1],mem:t[2],vpc:true,ebs:true,ip:false,sg:{ssh:p.ssh?2:1,http:p.http?1:0,db:p.db?2:0},
+    req:[{k:0,ok:1},{k:1,ok:p.http?1:0},{k:2,ok:p.db?1:0}],
+    m:[['vCPU / memory',t[1]+' / '+t[2]+' GiB','n'],['Price / hour','$'+price.toFixed(4),'n'],['Per month','≈ $'+(mo<10?mo.toFixed(2):Math.round(mo)),'n'],['Exposure',exp[0],exp[1]]]};
+}
+(function(){
+  var base={st:'running',type:'t3.micro',vcpu:2,mem:1,vpc:false,ebs:false,ip:false,sg:null,req:[]};
+  function sc(o){var r={},k;for(k in base)r[k]=base[k];for(k in o)r[k]=o[k];return r}
+  var sgOn={ssh:1,http:1,db:0},reqs=[{k:0,ok:1},{k:1,ok:1},{k:2,ok:0}];
+  LESSONS.push({
+    id:'ec2',icon:'server',parts:[["laptop", {}, "You", "Connect from your own computer."], ["globe", {}, "Internet gateway", "The door between the VPC and the internet."], ["cloud", {}, "VPC", "Your private network in AWS."], ["shield", {}, "Security group", "A firewall around the instance."], ["server", {}, "EC2 instance", "A virtual server."], ["disk", {}, "EBS volume", "The instance's disk."]],group:'Cloud',name:'AWS EC2',
+    blurb:'Launch a virtual server, put it on a network, lock it down with a security group, give it a disk, resize it and compare pricing models. Prices are approximate us-east-1 Linux rates.',
+    legend:[['c-res','allowed or running'],['c-bad','blocked or stopped'],['c-slow','allowed from anywhere'],['c-queue','pending']],
+    draw:drawEC2,metrics:function(s){return s.m},
+    steps:[
+     {label:'Launch',tag:'SETUP',title:'An instance is a virtual server',text:'Launching an EC2 instance means picking an AMI (the operating system image) and an instance type (how much CPU and memory). A t3.micro has 2 vCPUs and 1 GiB of memory and costs about a cent an hour.',idea:'Pick the smallest type that fits, then resize. Types are named family, generation and size, like t3.micro.',
+      scene:sc({m:[['Instance type','t3.micro','n'],['vCPU / memory','2 / 1 GiB','n'],['Price','$0.0104 / hr','n'],['State','running','ok']]})},
+     {label:'Network',tag:'VPC',title:'It lives inside a VPC',text:'The instance runs in a subnet of your Virtual Private Cloud, your own isolated network. An internet gateway connects the subnet to the internet, and the instance gets a private IP plus a public one.',idea:'The private IP is for traffic inside the VPC. A public IP or Elastic IP is needed to be reachable from the internet.',
+      scene:sc({vpc:true,ip:true,m:[['VPC','10.0.0.0/16','n'],['Subnet','10.0.1.0/24','n'],['Private IP','10.0.1.25','n'],['Public IP','3.91.40.12','ok']]})},
+     {label:'Firewall',tag:'SECURITY',title:'Security groups are the firewall',text:'A security group lists what is allowed in. Here SSH is open only to your IP, HTTP to everyone, and MySQL is not listed, so that traffic is dropped. The default is to deny all inbound traffic.',idea:'Do not open SSH or a database port to 0.0.0.0/0 unless you must. Allow only the sources that need access.',
+      scene:sc({vpc:true,sg:sgOn,req:reqs,m:[['SSH 22','my IP only','ok'],['HTTP 80','allowed','ok'],['MySQL 3306','blocked','warn'],['State','running','ok']]})},
+     {label:'Storage',tag:'EBS',title:'EBS gives it a disk',text:'The root disk is an EBS volume, network storage attached to the instance. It survives a stop and start. By default the root volume is deleted when you terminate the instance.',idea:'Stop pauses the instance and keeps the disk. Terminate destroys the instance and, by default, its root disk. Take snapshots for backups.',
+      scene:sc({vpc:true,sg:sgOn,ebs:true,m:[['Root volume','8 GB gp3','n'],['On stop','data kept','ok'],['On terminate','deleted','warn'],['State','running','ok']]})},
+     {label:'Resize',tag:'SCALE',title:'Stop, resize, start',text:'Change the instance type while it is stopped. Here t3.micro becomes t3.large with 8 GiB of memory. While stopped you pay for the EBS volume but not for compute.',idea:'Vertical scaling needs a restart. Horizontal scaling, adding more instances, does not.',
+      scene:sc({vpc:true,sg:sgOn,ebs:true,st:'stopped',type:'t3.large',mem:8,m:[['Instance type','t3.large','n'],['vCPU / memory','2 / 8 GiB','n'],['Compute billing','paused','ok'],['State','stopped','warn']]})},
+     {label:'Pricing',tag:'COST',title:'Pay less with the right pricing',text:'On-demand has no commitment. A Savings Plan gives a lower rate for a 1 or 3 year commitment. Spot uses spare capacity at a steep discount, but AWS can take it back with two minutes notice.',idea:'Use spot for fault-tolerant work such as batch jobs. Keep databases and single points of failure on on-demand or savings plans.',
+      scene:sc({buy:true,m:[['On-demand','$0.083 / hr','n'],['Savings plan','≈ $0.058 / hr','ok'],['Spot','≈ $0.029 / hr','warn'],['On-demand / month','≈ $61','n']]})},
+     {label:'Try it',tag:'PLAY',title:'Configure your own instance',pg:true,text:'Pick an instance type, change who can reach it and choose a pricing model. The cost and exposure tiles update as you go.',idea:'Turn on SSH from anywhere and watch the exposure warning. Then try the Spot price.'}
+    ],
+    pg:{
+     init:function(){return {ti:0,ssh:false,http:true,db:false,buy:0}},scene:ec2Scene,
+     fmt:{ti:function(v){return EC2T[v][0]},buy:function(v){return EC2_BUY[v]}},
+     controls:function(p){return '<label class="ctl"><span>Instance type <b id="v-ti">'+EC2T[p.ti][0]+'</b></span><input type="range" id="c-ti" data-k="ti" min="0" max="5" step="1" value="'+p.ti+'"></label>'+
+      '<label class="ctl"><span>Pricing <b id="v-buy">'+EC2_BUY[p.buy]+'</b></span><input type="range" id="c-buy" data-k="buy" min="0" max="2" step="1" value="'+p.buy+'"></label>'+
+      '<label class="ctl chk"><input type="checkbox" id="c-ssh" data-k="ssh"'+(p.ssh?' checked':'')+'> SSH from anywhere</label>'+
+      '<label class="ctl chk"><input type="checkbox" id="c-http" data-k="http"'+(p.http?' checked':'')+'> Allow HTTP 80</label>'+
+      '<label class="ctl chk"><input type="checkbox" id="c-db" data-k="db"'+(p.db?' checked':'')+'> Open MySQL 3306</label>'},
+     set:function(p,k,v){p[k]=v},act:function(){}
+    }
+  });
+})();
+
+/* ===== AWS S3 ===== */
+var FICON={png:'img',pdf:'pdf',html:'html',gz:'doc'};
+var S3_RIGHT_IC={'one object':'file','who can read':'lock','presigned URL':'clock','report.pdf':'layers','storage classes':'bucket','lifecycle rule':'clock'};
+function drawS3(s){
+  var o='',i,cnt={app:0,pub:0};
+  (s.req||[]).forEach(function(r){
+    var ly=r.f==='app'?96:284,ex=r.ok?244:226,d='M112,'+ly+' L'+ex+','+ly;
+    o+='<path d="'+d+'" class="ln'+(r.ok?'':' dead')+'"/>';
+    if(r.ok)o+=packet(d,1.6,cnt[r.f]*0.5,r.c||'c-res');else o+='<path d="M220,'+(ly-7)+' l12,14 m0,-14 l-12,14" class="cross"/>';
+  });
+  o+=pop(box(14,56,98,80,'bx pad',12)+ic('server',37,60,40,{blink:true})+T(63,112,'app','lbl xs','middle')+T(63,126,'IAM role','lbl sm','middle'));
+  o+=pop(box(14,244,98,80,'bx pad',12)+ic('user',37,248,40,{k:1})+T(63,300,'public','lbl xs','middle')+T(63,314,'user','lbl sm','middle'));
+  var blocked=s.acc.indexOf('blocked')>-1;
+  o+=pop(box(244,30,190,320,'bx',14)+T(260,56,'my-app-assets','lbl')+T(260,76,s.acc,'lbl sm')+ic('bucket',390,34,38)+(blocked?ic('lock',414,56,20):''));
+  s.objs.forEach(function(ob,k){
+    var y=92+k*46,ext=ob.k.split('.').pop();
+    o+=pop('<rect x="258" y="'+y+'" width="162" height="36" rx="8" class="bx '+(ob.st||'')+'" style="stroke-width:2"/>'+ic('file',264,y+6,24,{t:FICON[ext]||'doc'})+T(294,y+23,ob.k,'lbl k')+T(412,y+23,ob.b,'lbl sm','end'));
+  });
+  (s.req||[]).forEach(function(r){
+    var ly=r.f==='app'?96:284,cy=ly+30+cnt[r.f]*30;cnt[r.f]++;
+    o+=chip(178,cy,r.t,r.ok?'c-res':'c-bad');
+  });
+  if(s.clock)o+=chip(100,350,'15 min link','c-queue');
+  var st={ok:'st-pass',bad:'st-fail',run:'st-run'},ri=S3_RIGHT_IC[s.right.title];
+  var rg=box(458,30,166,320,'bx',12)+T(472,56,s.right.title,'lbl xs')+(ri?ic(ri,590,34,26):'');
+  s.right.rows.forEach(function(r,k){
+    var y=76+k*52;
+    rg+='<rect x="472" y="'+y+'" width="138" height="44" rx="8" class="bx '+(st[r[2]]||'')+'" style="stroke-width:2"/>'+T(482,y+19,r[0],'lbl xs')+T(482,y+35,r[1],'lbl sm');
+  });
+  o+=pop(rg);
+  return o;
+}
+function s3Scene(p){
+  var gone=p.del&&!p.ver,marker=p.del&&p.ver,objs=[{k:'img/logo.png',b:'v1'},{k:'index.html',b:'v1'}],rows=[],k;
+  if(!gone)objs.splice(1,0,marker?{k:'docs/report.pdf',b:'del',st:'st-fail'}:{k:'docs/report.pdf',b:p.ver?'v'+p.n:'v1'});
+  if(gone)rows.push(['gone','no versions kept','bad']);
+  else{
+    if(marker)rows.push(['delete marker','current','bad']);
+    if(p.ver){for(k=p.n;k>=1&&rows.length<4;k--)rows.push(['v'+k,marker?'hidden':(k===p.n?'current':'older'),(!marker&&k===p.n)?'ok':''])}
+    else rows.push(['v1','current','ok']);
+  }
+  var rc=gone?'404':(p.last?p.last:'—');
+  return {objs:objs,acc:p.block?'public: blocked':'public: open',req:p.req,clock:false,right:{title:'report.pdf',rows:rows},
+    m:[['Visible objects',String(objs.length),'n'],['Versions kept',gone?'0':String(p.ver?p.n:1),'n'],['Public access',p.block?'blocked':'open',p.block?'ok':'warn'],['Last response',p.last||'—',p.last==='200'?'ok':(p.last?'bad':'n')]]};
+}
+(function(){
+  var O3=[{k:'img/logo.png',b:'v1'},{k:'docs/report.pdf',b:'v1'},{k:'index.html',b:'v1'}];
+  function R(t,rows){return {title:t,rows:rows}}
+  function sc(o){var r={objs:O3,acc:'public: blocked',req:[],clock:false},k;for(k in o)r[k]=o[k];return r}
+  var appGet={f:'app',t:'GET 200',ok:1,c:'c-res'},appPut={f:'app',t:'PUT 200',ok:1,c:'c-req'};
+  LESSONS.push({
+    id:'s3',icon:'bucket',parts:[["bucket", {}, "Bucket", "A container for objects with a unique name."], ["file", {"t": "img"}, "Object", "A file plus a key and metadata."], ["lock", {}, "Block public access", "A master switch against public reads."], ["clock", {}, "Presigned URL", "A temporary link to one object."], ["user", {}, "Public user", "Someone with no AWS permissions."], ["server", {}, "App with IAM role", "Your server, allowed by role not by key."]],group:'Cloud',name:'AWS S3',
+    blurb:'Learn how object storage works: buckets and keys, who can read what, temporary links, versioning, storage classes and lifecycle rules. Prices are approximate us-east-1 rates.',
+    legend:[['c-req','write'],['c-res','read'],['c-bad','denied or not found'],['c-queue','time limited']],
+    draw:drawS3,metrics:function(s){return s.m},
+    steps:[
+     {label:'Bucket',tag:'SETUP',title:'A bucket holds objects',text:'S3 is object storage. A bucket is a container with a globally unique name, and each object in it is found by its key, such as img/logo.png. The slash is part of the name; there are no real folders.',idea:'S3 is a key-to-bytes store, not a file system. A prefix like docs/ just groups keys.',
+      scene:sc({right:R('one object',[['key','img/logo.png',''],['value','84 KB of bytes',''],['metadata','image/png, tags',''],['version','versioning off','']]),m:[['Objects','3','n'],['Stored','1.2 MB','n'],['Public access','blocked','ok'],['Requests','—','n']]})},
+     {label:'Put and Get',tag:'API',title:'Everything is an HTTP request',text:'Your app uploads with PUT and downloads with GET over HTTPS. Each call is signed with credentials from an IAM role, so S3 knows who is asking. Both calls here succeed with status 200.',idea:'Use an IAM role on the server instead of storing access keys in code.',
+      scene:sc({req:[appPut,appGet],right:R('HTTP verbs',[['PUT','upload an object',''],['GET','download it',''],['DELETE','remove it',''],['LIST','keys by prefix','']]),m:[['Requests','2','n'],['PUT','200','ok'],['GET','200','ok'],['Objects','3','n']]})},
+     {label:'Private',tag:'ACCESS',title:'Private by default',text:'A new bucket denies everyone except identities you allow. The app role can read, but an anonymous public GET returns 403 Forbidden. Block Public Access adds a second lock that stops a mistaken policy from exposing data.',idea:'Most S3 data leaks come from buckets made public by mistake. Keep Block Public Access on.',
+      scene:sc({req:[appGet,{f:'pub',t:'GET 403',ok:0}],right:R('who can read',[['Block public access','ON','ok'],['IAM role','allows the app','ok'],['Public user','no permission','bad']]),m:[['Public access','blocked','ok'],['Last public GET','403','bad'],['App GET','200','ok'],['Objects','3','n']]})},
+     {label:'Signed URL',tag:'SHARE',title:'Share one file with a temporary link',text:'To let a customer download one report without making anything public, your app creates a presigned URL. It carries a signature and an expiry time, here 15 minutes. After that it stops working.',idea:'A presigned URL grants one action on one object for a limited time, using the permissions of whoever signed it.',
+      scene:sc({req:[{f:'app',t:'sign URL',ok:1,c:'c-req'},{f:'pub',t:'URL 200',ok:1,c:'c-res'}],clock:true,right:R('presigned URL',[['made by','your app',''],['expires','in 15 minutes','run'],['allows','one GET only',''],['bucket','still private','ok']]),m:[['Public access','blocked','ok'],['Link lifetime','15 min','warn'],['Last public GET','200','ok'],['Objects','3','n']]})},
+     {label:'Versioning',tag:'SAFETY',title:'Versioning keeps every overwrite',text:'With versioning on, uploading report.pdf again does not replace the old file. It creates a new version and keeps the previous ones, so a bad upload can be rolled back.',idea:'Versioning protects against overwrites and deletes. You pay for every stored version, so pair it with a lifecycle rule.',
+      scene:sc({objs:[{k:'img/logo.png',b:'v1'},{k:'docs/report.pdf',b:'v3'},{k:'index.html',b:'v1'}],req:[appPut],right:R('report.pdf',[['v3','current','ok'],['v2','older',''],['v1','older','']]),m:[['Versions','3','ok'],['Current','v3','n'],['Rollback','possible','ok'],['Objects','3','n']]})},
+     {label:'Delete',tag:'SAFETY',title:'A delete only adds a marker',text:'Deleting a versioned object adds a delete marker on top. A GET now returns 404, but all three versions are still stored. Remove the marker and the file is back.',idea:'Without versioning, a delete is permanent. With it, deleting is reversible.',
+      scene:sc({objs:[{k:'img/logo.png',b:'v1'},{k:'docs/report.pdf',b:'del',st:'st-fail'},{k:'index.html',b:'v1'}],req:[{f:'app',t:'DELETE 204',ok:1,c:'c-req'}],right:R('report.pdf',[['delete marker','current','bad'],['v3','hidden',''],['v2','hidden',''],['v1','hidden','']]),m:[['GET report.pdf','404','bad'],['Versions kept','3','ok'],['Visible objects','2','warn'],['Recover','remove marker','n']]})},
+     {label:'Classes',tag:'COST',title:'Cheaper classes for colder data',text:'S3 Standard is for data you read often. Infrequent Access, Glacier Instant Retrieval and Deep Archive cost less to store but charge for retrieval or take longer to read. Storing 1,000 GB ranges from about $23 to about $1 a month.',idea:'Pick the class by how often you read the data, not by how important it is.',
+      scene:sc({right:R('storage classes',[['Standard','$23 / 1,000 GB','run'],['Standard-IA','$12.50 / 1,000 GB',''],['Glacier Instant','$4 / 1,000 GB',''],['Deep Archive','$1 / 1,000 GB','']]),m:[['Standard','$23 / mo','n'],['Standard-IA','$12.50 / mo','n'],['Glacier Instant','$4 / mo','n'],['Deep Archive','$1 / mo','ok']]})},
+     {label:'Lifecycle',tag:'COST',title:'Lifecycle rules move data for you',text:'A lifecycle rule moves objects to cheaper classes as they age, then deletes them. Logs start in Standard, move to Infrequent Access after 30 days, Glacier after 90 and are deleted after a year, without any code.',idea:'Write the rule once. S3 applies it to every object, including new ones.',
+      scene:sc({objs:[{k:'logs/new.gz',b:'Std'},{k:'logs/mar.gz',b:'IA',st:'st-run'},{k:'logs/jan.gz',b:'Glacier',st:'st-pass'}],right:R('lifecycle rule',[['day 0','Standard','ok'],['day 30','→ Standard-IA',''],['day 90','→ Glacier Instant',''],['day 365','→ delete','']]),m:[['Rule','30 / 90 / 365 days','n'],['Saving','up to ~95%','ok'],['Retrieval','slower','warn'],['Code needed','none','ok']]})},
+     {label:'Try it',tag:'PLAY',title:'Break a bucket safely',pg:true,text:'Toggle Block Public Access and versioning, then try a public GET, overwrite the report and delete it. Compare what you can recover with versioning on and off.',idea:'Turn versioning off, delete the report, then try Restore. Now repeat with versioning on.'}
+    ],
+    pg:{
+     init:function(){return {block:true,ver:false,n:1,del:false,last:null,req:[]}},scene:s3Scene,
+     controls:function(p){return '<label class="ctl chk"><input type="checkbox" id="c-block" data-k="block"'+(p.block?' checked':'')+'> Block public access</label>'+
+      '<label class="ctl chk"><input type="checkbox" id="c-ver" data-k="ver"'+(p.ver?' checked':'')+'> Versioning</label>'+
+      '<button class="btn" type="button" data-act="pub">Public GET</button><button class="btn" type="button" data-act="put">Upload / overwrite</button><button class="btn" type="button" data-act="del">Delete</button><button class="btn run" type="button" data-act="restore">Restore</button><p class="msg" id="pgmsg">Try a public GET with Block public access on, then off.</p>'},
+     set:function(p,k,v){p[k]=v},
+     act:function(p,a){
+       var gone=p.del&&!p.ver,marker=p.del&&p.ver;
+       if(a==='pub'){
+         var res=(gone||marker)?'404':(p.block?'403':'200');
+         p.last=res;p.req=[{f:'pub',t:'GET '+res,ok:res==='200'}];
+         kmsg(res==='200'?'200: the file was served to an anonymous user.':(res==='403'?'403: access denied because public access is blocked.':'404: the object does not exist as far as GET is concerned.'));
+       }else if(a==='put'){
+         if(p.del){p.del=false;if(p.ver)p.n++;else p.n=1;kmsg(p.ver?'New version uploaded on top of the delete marker.':'Uploaded report.pdf as a new object.')}
+         else if(p.ver){p.n++;kmsg('Saved as version v'+p.n+'. Older versions are kept.')}
+         else kmsg('Overwritten in place. The old content is gone.');
+         p.req=[{f:'app',t:'PUT 200',ok:1,c:'c-req'}];
+       }else if(a==='del'){
+         if(gone){kmsg('Already deleted.');return}
+         p.del=true;p.req=[{f:'app',t:'DELETE 204',ok:1,c:'c-req'}];
+         kmsg(p.ver?'A delete marker was added. Older versions are still stored.':'Deleted permanently. No versions were kept.');
+       }else if(a==='restore'){
+         if(!p.del){kmsg('Nothing to restore: the object is not deleted.');return}
+         if(!p.ver){kmsg('Versioning was off, so nothing can be restored.');return}
+         p.del=false;p.req=[{f:'app',t:'DELETE 204',ok:1,c:'c-req'}];kmsg('Delete marker removed. report.pdf is back.');
+       }
+     }
+    }
+  });
+})();
+
+/* =========================================================
+   INCIDENT ROOM: an on-call game
+   ========================================================= */
+var INC=[
+ {tag:'CPU 98%',err:'timeout',icon:'server',alert:'CPU is at 98% on all 3 web servers and pages take 12 seconds to load.',clue:'A marketing email went out 10 minutes ago. Traffic is 5x normal.',opts:['Add more servers or let autoscaling add them','Restart every server at once','Delete old log files'],ok:0,why:'The servers are healthy but overloaded. Scaling out spreads the extra traffic. Restarting all servers at once would drop every user for a while and the load would return.'},
+ {tag:'disk 100%',err:'disk full',icon:'disk',alert:'The app cannot save uploads. Error: "No space left on device".',clue:'The disk was at 60% last week. /var/log is 38 GB.',opts:['Reboot the server','Free the space: compress or delete old logs, then set up log rotation','Upgrade to a bigger CPU'],ok:1,why:'Logs filled the disk. Clear space now and add log rotation so it cannot happen again. A reboot does not delete files and CPU is not the problem.'},
+ {tag:'errors 40%',err:'HTTP 500',icon:'rocket',alert:'Error rate jumped from 1% to 40% two minutes after version 2.3 was deployed.',clue:'Version 2.2 ran fine for weeks. Nothing else changed.',opts:['Add more servers','Wait and see if it settles','Roll back to version 2.2'],ok:2,why:'A fresh deploy plus a sudden error spike points at the new version. Roll back first to stop the damage, then debug 2.3 calmly.'},
+ {tag:'CrashLoop',err:'crash loop',icon:'pod',alert:'A Kubernetes pod shows CrashLoopBackOff and has restarted 14 times.',clue:'The image was updated an hour ago.',opts:['Read the previous container logs and describe the pod','Delete the whole node','Ignore it, Kubernetes will fix itself'],ok:0,why:'kubectl logs --previous and kubectl describe pod show why it exits: bad config, missing secret, failing probe or out-of-memory. Restarting forever never fixes a bug.'},
+ {tag:'cert expired',err:'TLS error',icon:'lock',alert:'Browsers show "Your connection is not private". The HTTPS certificate expired this morning.',clue:'Nobody renewed it by hand.',opts:['Turn HTTPS off so the warning goes away','Renew the certificate now, then automate renewal','Restart the database'],ok:1,why:'Renew now and automate it (for example with ACME). Turning HTTPS off exposes users and makes things worse.'},
+ {tag:'key leaked',err:'exposed',icon:'key',alert:'Someone committed an AWS access key to a public GitHub repository.',clue:'The commit is 3 minutes old and the repo is small.',opts:['Revoke or rotate the key immediately, then check activity logs','Delete the commit and hope nobody saw it','Wait, the repo has few visitors'],ok:0,why:'Bots scan public repos within seconds. Deleting the commit does not remove copies. Revoke the key first, then review CloudTrail for misuse.'},
+ {tag:'bucket public',err:'public read',icon:'bucket',alert:'A storage bucket holding customer invoices can be opened by anyone with the link.',clue:'Block Public Access is OFF for this bucket.',opts:['Rename the bucket','Turn on Block Public Access and review the bucket policy','Turn on versioning'],ok:1,why:'Block Public Access is the master switch. Then fix the policy and check access logs to see who read the files.'},
+ {tag:'conn maxed',err:'too many conn',icon:'db',alert:'The database says "too many connections" and the app returns errors.',clue:'Each web request opens a new connection and never closes it.',opts:['Add more web servers','Use a connection pool and close connections properly','Turn the database off for a minute'],ok:1,why:'More web servers would open even more connections. A pool reuses a small set of connections and the leak must be fixed.'},
+ {tag:'DDoS',err:'503 flood',icon:'firewall',alert:'2 million requests per minute are hitting the login page from thousands of different IPs.',clue:'Normal traffic is 2 000 requests per minute.',opts:['Block the first IP you see','Put a CDN or WAF in front and add rate limits','Shut the site down for a week'],ok:1,why:'The traffic comes from many addresses, so blocking one IP does nothing. A CDN or WAF absorbs and filters it, and rate limits protect the login.'},
+ {tag:'memory leak',err:'OOM killed',icon:'server',alert:'The service is killed for running out of memory about every 6 hours.',clue:'Memory climbs in a straight line after each restart.',opts:['Profile for a memory leak and set a memory limit with alerts','Add a cron job to reboot it forever','Buy a faster CPU'],ok:0,why:'A steady climb means a leak. A reboot only hides it. Find the leak and add limits and alerts so you hear about it early.'},
+ {tag:'DNS fail',err:'NXDOMAIN',icon:'globe',alert:'Users cannot open shop.example.com, but opening the server IP address directly works.',clue:'The DNS record was edited yesterday.',opts:['Reinstall the operating system','Check the DNS records (A or CNAME) and their TTL','Add more pods'],ok:1,why:'The server is fine because the IP works. The name is not pointing to it, so look at the DNS record and how long old answers are cached (TTL).'},
+ {tag:'CI red',err:'build failed',icon:'flask',alert:'The pipeline is red on the main branch after a merge. Tests fail.',clue:'Three more merges are waiting and a release is due today.',opts:['Skip the tests just this once','Stop merging, then revert or fix the change','Delete the failing tests'],ok:1,why:'A red main branch blocks everyone. Revert or fix quickly. Skipping or deleting tests ships bugs and hides the problem.'},
+ {tag:'SSH attack',err:'auth failed',icon:'key',alert:'Logs show 40 000 failed SSH logins a day from unknown IPs on port 22.',clue:'The security group allows SSH from 0.0.0.0/0 and passwords are enabled.',opts:['Allow even more ports','Limit SSH to your IP, use keys and turn off passwords','Share the password with the team'],ok:1,why:'Shrink who can reach port 22 and use key-based login. Fewer open doors means fewer attacks.'}
+];
+var GS=null,gtimer=null;
+function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),t=a[i];a[i]=a[j];a[j]=t}return a}
+function hearts(n){var s='';for(var i=0;i<3;i++)s+='<span class="hp'+(i<n?'':' off')+'">♥</span>';return s}
+function rankOf(r){return r>=10?'Incident commander':(r>=8?'Senior SRE':(r>=5?'Junior SRE':'Intern on call'))}
+
+function drawIncident(inc,st){
+  var o='',i,bad=st!=='ok';
+  still=reduce||st==='keep';_pd=0;
+  o+=pop(box(16,92,120,112,'bx pad',12)+ic('user',26,104,40,{k:0})+ic('user',76,104,40,{k:1})+ic('user',51,146,40,{k:2})+T(76,222,'users','lbl sm','middle'));
+  for(i=0;i<3;i++){
+    var ys=80+i*58,yc=ys+23,d='M136,148 C300,148 330,'+yc+' 440,'+yc;
+    o+='<path d="'+d+'" class="ln'+(bad?' dead':'')+'"/>';
+    if(!bad)o+=packet(d,2,i*0.6,'c-res');
+    else o+='<path d="M268,'+(148+(yc-148)*0.5-7)+' l12,14 m0,-14 l-12,14" class="cross"/>';
+    var g=box(440,ys,170,46,'bx '+(bad?'st-fail':'st-pass'),9)+ic('server',448,ys+5,36,{led:bad?'f-red':'f-res',blink:true})+T(492,ys+20,'web-'+(i+1),'lbl xs')+T(492,ys+36,bad?inc.err:'200 OK','lbl sm');
+    if(bad&&!reduce)g='<g><animateTransform attributeName="transform" type="translate" values="0 0;-2 0;2 0;0 0" dur=".5s" begin="-'+(i*0.17).toFixed(2)+'s" repeatCount="indefinite"/>'+g+'</g>';
+    o+=pop(g);
+  }
+  var badge=box(190,10,260,54,'bx '+(bad?'st-fail':'st-pass'),12)+ic(bad?inc.icon:'shield',200,17,40,{run:bad})+T(250,32,bad?'INCIDENT':'RESOLVED','lbl xs')+T(250,52,bad?inc.tag:'all green','lbl');
+  if(bad&&!reduce)badge+='<rect x="185" y="5" width="270" height="64" rx="16" fill="none" stroke="var(--bad)" stroke-width="2.5"><animate attributeName="opacity" values=".9;.1;.9" dur="1s" repeatCount="indefinite"/></rect>';
+  o+=pop(badge);
+  return o;
+}
+function gameHud(){
+  return '<span class="gk">ALERT '+(Math.min(GS.i+1,GS.deck.length))+' / '+GS.deck.length+'</span><span class="hearts" aria-label="'+GS.lives+' lives left">'+hearts(GS.lives)+'</span><span class="gk">SCORE <b>'+GS.score+'</b></span><span class="gk">STREAK <b>'+GS.streak+'</b></span>';
+}
+function gameHome(){
+  clearInterval(gtimer);GS=null;
+  var best=lsGet('best',0);
+  $('#game').innerHTML=
+    '<div class="ghome"><div class="gbig"><svg class="i" viewBox="0 0 48 48" width="72" height="72" stroke-width="2.6" aria-hidden="true"><g>'+ICONS.firewall({})+'</g></svg></div>'+
+    '<div><h2>Incident Room</h2><p>You are on call. The pager goes off and something is broken in production. Choose the right first move before the timer runs out. You get 10 alerts and 3 lives. Faster correct answers score more, and a streak adds a bonus.</p>'+
+    '<p class="gk">BEST SCORE <b>'+best+'</b> &nbsp;·&nbsp; PRESS 1, 2 OR 3 TO ANSWER</p>'+
+    '<div class="nav"><button class="btn run" type="button" id="gstart">Start my shift</button></div></div></div>';
+}
+function gameStart(){
+  GS={deck:shuffle(INC).slice(0,10),i:0,lives:3,score:0,streak:0,right:0,missed:[],state:'q'};
+  gameRound();
+}
+function gameRound(){
+  var inc=GS.deck[GS.i];
+  GS.order=shuffle([0,1,2]);GS.t0=Date.now();GS.state='q';GS.limit=20;
+  $('#game').innerHTML=
+    '<div class="gtop" id="ghud">'+gameHud()+'</div>'+
+    '<div class="gbar" aria-hidden="true"><i id="gbar"></i></div>'+
+    '<section class="stage" aria-label="Production status"><div class="svgwrap"><svg id="gsvg" viewBox="0 0 640 250" role="img" aria-label="Users, servers and the current incident"></svg></div></section>'+
+    '<div class="gcard"><div class="pager"><span class="gk">PAGER · <b id="gsec">20</b>s</span><strong>'+esc(inc.alert)+'</strong><span>'+esc(inc.clue)+'</span></div>'+
+    '<p class="gk">WHAT IS YOUR FIRST MOVE?</p><div class="gopts">'+GS.order.map(function(j,k){return '<button class="opt" type="button" data-gopt="'+j+'"><kbd>'+(k+1)+'</kbd><span>'+esc(inc.opts[j])+'</span></button>'}).join('')+'</div>'+
+    '<div id="gfb" aria-live="polite"></div></div>';
+  $('#gsvg').innerHTML=drawIncident(inc,'bad');
+  clearInterval(gtimer);
+  gtimer=setInterval(function(){
+    var left=GS.limit-(Date.now()-GS.t0)/1000,b=$('#gbar'),s=$('#gsec');
+    if(!b){clearInterval(gtimer);return}
+    b.style.width=Math.max(0,left/GS.limit*100)+'%';b.className=left<6?'low':'';
+    if(s)s.textContent=Math.max(0,Math.ceil(left));
+    if(left<=0)gameAnswer(-1);
+  },100);
+}
+function gameAnswer(j){
+  if(!GS||GS.state!=='q')return;
+  clearInterval(gtimer);GS.state='a';
+  var inc=GS.deck[GS.i],left=Math.max(0,GS.limit-(Date.now()-GS.t0)/1000),good=j===inc.ok,pts=0,msg;
+  if(good){GS.streak++;GS.right++;pts=100+Math.round(left)*5+(GS.streak>1?(GS.streak-1)*25:0);GS.score+=pts;msg='Correct. +'+pts+' points'+(GS.streak>1?' (streak bonus included)':'')+'.'}
+  else{GS.lives--;GS.streak=0;GS.missed.push(inc);msg=j<0?'Time is up. The incident ran on.':'Not the best first move.'}
+  Array.prototype.forEach.call(document.querySelectorAll('.opt'),function(b){
+    var v=parseInt(b.dataset.gopt,10);b.disabled=true;
+    if(v===inc.ok)b.classList.add('good');else if(v===j)b.classList.add('wrong');
+  });
+  var over=GS.lives<=0||GS.i>=GS.deck.length-1;
+  $('#gfb').innerHTML='<div class="fb '+(good?'ok':'bad')+'"><b>'+esc(msg)+'</b><p>'+esc(inc.why)+'</p></div><div class="nav"><button class="btn go" type="button" id="gnext"><span>'+(over?'See results':'Next alert')+'</span><span aria-hidden="true">→</span></button></div>';
+  $('#ghud').innerHTML=gameHud();
+  if(good)$('#gsvg').innerHTML=drawIncident(inc,'ok');
+  var nb=$('#gnext');if(nb)nb.focus({preventScroll:false});
+}
+function gameNext(){
+  if(GS.lives<=0||GS.i>=GS.deck.length-1){gameEnd();return}
+  GS.i++;gameRound();
+}
+function gameEnd(){
+  clearInterval(gtimer);
+  var best=lsGet('best',0),isBest=GS.score>best;if(isBest)lsSet('best',GS.score);
+  var conf='';
+  if(GS.right>=8&&!reduce)for(var c=0;c<28;c++)conf+='<i class="cf" style="left:'+Math.round(Math.random()*100)+'%;animation-delay:'+(Math.random()*1.2).toFixed(2)+'s;background:var(--'+['req','res','slow','queue','bad'][c%5]+')"></i>';
+  $('#game').innerHTML=
+    '<div class="gres">'+conf+'<p class="gk">'+(GS.lives<=0?'PAGER DOWN · OUT OF LIVES':'SHIFT COMPLETE')+'</p><h2>'+rankOf(GS.right)+'</h2>'+
+    '<div class="metrics"><div class="tile ok"><div class="k">Score</div><div class="v">'+GS.score+'</div></div><div class="tile ok"><div class="k">Fixed</div><div class="v">'+GS.right+' / '+(GS.i+1)+'</div></div><div class="tile'+(isBest?' ok':'')+'"><div class="k">Best</div><div class="v">'+Math.max(best,GS.score)+'</div></div></div>'+
+    (isBest?'<p class="gk">NEW PERSONAL BEST</p>':'')+
+    (GS.missed.length?'<div class="miss"><h3>Study these</h3><ul>'+GS.missed.map(function(m){return '<li><b>'+esc(m.tag)+'</b><span>'+esc(m.opts[m.ok])+'</span></li>'}).join('')+'</ul></div>':'<p>No misses. Clean shift.</p>')+
+    '<div class="nav"><button class="btn run" type="button" id="gstart">Play again</button><button class="btn" type="button" data-lesson="kubernetes">Study Kubernetes</button><button class="btn" type="button" data-lesson="git">Back to lessons</button></div></div>';
+}
+function showGame(fromHash){
+  clearTimers();gameOn=true;
+  $('.app').classList.add('gm');
+  renderStatic();
+  if(!GS||GS.state==='done')gameHome();
+  if(!fromHash){try{history.replaceState(null,'','#game')}catch(e){location.hash='game'}}
+}
+function hideGame(){if(!gameOn)return;gameOn=false;clearInterval(gtimer);GS=null;$('.app').classList.remove('gm')}
+
+
+/* ---------- order and grouping ---------- */
+(function(){
+  var groups={scaling:'Cloud',pipeline:'Delivery',kubernetes:'Containers'};
+  LESSONS.forEach(function(L){if(groups[L.id])L.group=groups[L.id]});
+  var order=['git','docker','kubernetes','ec2','s3','scaling','pipeline'];
+  LESSONS.sort(function(a,b){return order.indexOf(a.id)-order.indexOf(b.id)});
+})();
+
+var seen=lsGet('seen',{});
+function sceneNow(){var st=cur.steps[idx];return st.pg?cur.pg.scene(getPG(cur)):st.scene}
+var lastVals={};
+function renderStage(anim){
+  var sc=sceneNow();
+  still=reduce||!anim;_pd=0;
+  $('#svg').innerHTML=cur.draw(sc);
+  var ms=cur.metrics(sc);
+  $('#metrics').innerHTML=ms.map(function(m){var key=cur.id+m[0],chg=lastVals[key]!==undefined&&lastVals[key]!==m[1];lastVals[key]=m[1];return '<div class="tile '+(m[2]==='n'?'':m[2])+(chg&&!reduce?' chg':'')+'"><div class="k">'+esc(m[0])+'</div><div class="v">'+esc(m[1])+'</div></div>'}).join('');
+}
+function renderStatic(){
+  var gorder=[],gmap={};
+  LESSONS.forEach(function(L){if(!gmap[L.group]){gmap[L.group]=[];gorder.push(L.group)}gmap[L.group].push(L)});
+  $('#lessons').innerHTML=gorder.map(function(g){
+    return '<div class="grp"><span class="gl">'+esc(g)+'</span>'+gmap[g].map(function(L){return '<button class="tab" type="button" data-lesson="'+L.id+'"'+(L===cur&&!gameOn?' aria-current="true"':'')+'>'+icSvg(L.icon||'server',18)+esc(L.name)+'</button>'}).join('')+'</div>';
+  }).join('')+'<div class="grp"><span class="gl">Play</span><button class="tab" type="button" data-game="1"'+(gameOn?' aria-current="true"':'')+'>'+icSvg('firewall',18)+'Incident Room</button></div>';
+  $('#intro').textContent=cur.blurb;
+  $('#partsList').innerHTML=(cur.parts||[]).map(function(p,k){return '<li style="animation-delay:'+(k*50)+'ms">'+icSvg(p[0],42,p[1])+'<div><b>'+esc(p[2])+'</b><span>'+esc(p[3])+'</span></div></li>'}).join('');
+  $('#legend').innerHTML=cur.legend.map(function(l){return '<li><i class="'+l[0]+'"></i>'+esc(l[1])+'</li>'}).join('');
+  var sv=seen[cur.id]||[];
+  $('#stepper').innerHTML=cur.steps.map(function(s,i){
+    return '<li class="'+(i===idx?'cur':(sv.indexOf(i)>-1?'seen':''))+'"><button type="button" data-step="'+i+'"'+(i===idx?' aria-current="step"':'')+'><span class="dot">'+(i+1)+'</span><span class="lab">'+esc(s.label)+'</span></button></li>';
+  }).join('');
+}
+function renderCard(){
+  var st=cur.steps[idx],last=idx===cur.steps.length-1;
+  var li=LESSONS.indexOf(cur),nextL=LESSONS[li+1];
+  var nextLabel=last?(nextL?'Next lesson: '+nextL.name:'Back to the first lesson'):'Next: '+cur.steps[idx+1].label;
+  $('#card').innerHTML=
+    '<div class="top"><span>STEP '+(idx+1)+' / '+cur.steps.length+'</span><span class="chipTag">'+esc(st.tag)+'</span></div>'+
+    '<h2>'+esc(st.title)+'</h2><p>'+esc(st.text)+'</p>'+
+    '<div class="idea"><b>Key idea</b>'+esc(st.idea)+'</div>'+
+    '<div class="ctl-box" id="ctl">'+(st.pg?cur.pg.controls(getPG(cur)):'')+'</div>'+
+    '<div class="nav"><button class="btn" type="button" id="back"'+(idx===0?' disabled':'')+'>← Back</button><button class="btn go" type="button" id="next"><span>'+esc(nextLabel)+'</span><span aria-hidden="true">→</span></button></div>';
+}
+function go(i,fromHash){
+  clearTimers();
+  idx=clamp(i,0,cur.steps.length-1);
+  var sv=seen[cur.id]||(seen[cur.id]=[]);if(sv.indexOf(idx)<0){sv.push(idx);lsSet('seen',seen)}
+  if(cur.steps[idx].pg){var p=getPG(cur);if(cur.id==='pipeline'){p.running=false}}
+  renderStatic();renderStage(true);renderCard();
+  if(!fromHash){try{history.replaceState(null,'','#'+cur.id+'-'+(idx+1))}catch(e){location.hash=cur.id+'-'+(idx+1)}}
+}
+function pick(id,i,fromHash){
+  hideGame();
+  for(var k=0;k<LESSONS.length;k++)if(LESSONS[k].id===id){cur=LESSONS[k];go(i,fromHash);return true}
+  return false;
+}
+function fromHash(){
+  if(location.hash==='#game'){if(!cur)cur=LESSONS[0];showGame(true);return}
+  hideGame();
+  var m=/^#([a-z0-9]+)-(\d+)$/.exec(location.hash||'');
+  if(m&&pick(m[1],parseInt(m[2],10)-1,true))return;
+  cur=LESSONS[0];go(0,true);
+}
+
+document.addEventListener('click',function(e){
+  var t=e.target.closest?e.target.closest('button'):null;if(!t)return;
+  if(t.dataset.game){showGame();return}
+  if(t.dataset.gopt!=null){gameAnswer(parseInt(t.dataset.gopt,10));return}
+  if(t.id==='gstart'){gameStart();return}
+  if(t.id==='gnext'){gameNext();return}
+  if(t.dataset.lesson){pick(t.dataset.lesson,0);return}
+  if(t.dataset.step!=null){go(parseInt(t.dataset.step,10));return}
+  if(t.id==='back'){go(idx-1);return}
+  if(t.id==='next'){
+    if(idx<cur.steps.length-1)go(idx+1);
+    else{var li=LESSONS.indexOf(cur);cur=LESSONS[(li+1)%LESSONS.length];go(0)}
+    return;
+  }
+  if(t.id==='replay'){renderStage(true);return}
+  if(t.dataset.act){cur.pg.act(getPG(cur),t.dataset.act);if(t.dataset.act!=='run')renderStage();return}
+});
+document.addEventListener('input',function(e){
+  var t=e.target;if(!t||!t.dataset||!t.dataset.k)return;
+  var k=t.dataset.k,v=t.type==='checkbox'?t.checked:Number(t.value),p=getPG(cur);
+  if(cur.id==='scaling'&&k==='failed'&&v&&p.servers<2){t.checked=false;kmsg('Add a second server first.');return}
+  cur.pg.set(p,k,v);
+  var sp=$('#v-'+k);if(sp)sp.textContent=(cur.pg.fmt&&cur.pg.fmt[k])?cur.pg.fmt[k](v):v;
+  if(cur.id==='scaling'&&k==='servers'&&v<2&&p.failed){p.failed=false;var c=$('#c-failed');if(c)c.checked=false}
+  renderStage();
+});
+document.addEventListener('keydown',function(e){
+  if(gameOn){if(GS&&GS.state==='q'&&/^[123]$/.test(e.key)){var ob=document.querySelectorAll('.opt')[+e.key-1];if(ob)ob.click()}return}
+  var tg=e.target&&e.target.tagName;if(tg==='INPUT'&&e.target.type==='range')return;
+  if(e.key==='ArrowRight')go(idx+1);else if(e.key==='ArrowLeft')go(idx-1);
+});
+window.addEventListener('hashchange',fromHash);
+fromHash();
+})();

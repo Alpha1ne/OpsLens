@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>OpsLens</title>
+<meta name="description" content="OpsLens: animated, interactive lessons on Git, Docker, Kubernetes, AWS EC2 and S3, scaling and CI/CD, plus an on-call incident game.">
+<meta name="theme-color" content="#111a2b">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<noscript><p style="padding:24px;font-family:sans-serif">OpsLens needs JavaScript to run the animated lessons.</p></noscript>
+<div class="app">
+  <header class="bar">
+    <div class="brand">
+      <svg width="40" height="40" viewBox="0 0 48 48" aria-hidden="true"><rect x="5" y="5" width="40" height="40" rx="10" fill="#111a2b"/><rect x="2" y="2" width="40" height="40" rx="10" fill="#fff" stroke="#111a2b" stroke-width="2.6"/><rect x="7" y="8" width="24" height="7" rx="2.2" fill="#fff" stroke="#111a2b" stroke-width="2.2"/><rect x="7" y="17.5" width="24" height="7" rx="2.2" fill="#fff" stroke="#111a2b" stroke-width="2.2"/><rect x="7" y="27" width="24" height="7" rx="2.2" fill="#fff" stroke="#111a2b" stroke-width="2.2"/><circle cx="11.5" cy="11.5" r="1.5" fill="#13a56b"/><circle cx="11.5" cy="21" r="1.5" fill="#13a56b"/><circle cx="11.5" cy="30.5" r="1.5" fill="#ec7f12"/><path d="M34.2 34.2l5 5" stroke="#111a2b" stroke-width="3.8" stroke-linecap="round"/><circle cx="28.5" cy="28.5" r="8.6" fill="#dae7ff" fill-opacity=".92" stroke="#111a2b" stroke-width="2.8"/><circle cx="28.5" cy="28.5" r="3.4" fill="#ec7f12" stroke="#111a2b" stroke-width="1.4"/></svg>
+      <span>Ops<b>Lens</b></span>
+    </div>
+    <nav class="lessons" id="lessons" aria-label="Lessons"></nav>
+  </header>
+
+  <p class="intro" id="intro"></p>
+  <div class="metrics" id="metrics" aria-live="polite"></div>
+
+  <section class="stage" aria-label="Animated diagram">
+    <div class="svgwrap"><svg id="svg" viewBox="0 0 640 380" role="img" aria-label="Diagram for the current step"></svg></div>
+    <div class="stagebar">
+      <ul class="legend" id="legend"></ul>
+      <div class="tools">
+        <button class="icon" id="replay" type="button" aria-label="Replay animation" title="Replay animation"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></button>
+      </div>
+    </div>
+  </section>
+
+  <section class="parts" aria-label="Components in this lesson"><h3>WHAT YOU ARE LOOKING AT</h3><ul id="partsList"></ul></section>
+
+  <section class="steps" aria-label="Steps in this lesson">
+    <h3>IN THIS LESSON</h3>
+    <ol id="stepper"></ol>
+  </section>
+
+  <section class="card" id="card"></section>
+  <section id="game" class="game" aria-label="Incident Room game"></section>
+  <footer>Use the left and right arrow keys to move between steps. Your visited steps are remembered in this browser.</footer>
+</div>
+<script src="/app.js" defer></script>
+</body>
+</html>
