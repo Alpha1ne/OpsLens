@@ -1102,7 +1102,7 @@ var lastVals={};
 function renderStage(anim){
   var sc=sceneNow();
   still=reduce||!anim;_pd=0;
-  GID=0;var _b=cur.draw(sc);$('#svg').innerHTML=isoDefs()+isoFloor()+_b;
+  GID=0;var _b=cur.draw(sc);$('#svg').innerHTML=isoDefs()+'<g id="flr">'+isoFloor()+'</g><g id="scn">'+_b+'</g>';fitStage();
   var ms=cur.metrics(sc);
   $('#metrics').innerHTML=ms.map(function(m){var key=cur.id+m[0],chg=lastVals[key]!==undefined&&lastVals[key]!==m[1];lastVals[key]=m[1];return '<div class="tile '+(m[2]==='n'?'':m[2])+(chg&&!reduce?' chg':'')+'"><div class="k">'+esc(m[0])+'</div><div class="v">'+esc(m[1])+'</div></div>'}).join('');
 }
@@ -1121,7 +1121,7 @@ function renderDash(){
   var total=0,vis=0,done=0;
   LESSONS.forEach(function(L){var n=(seen[L.id]||[]).length;total+=L.steps.length;vis+=n;if(n>=L.steps.length)done++});
   var pct=total?Math.round(vis/total*100):0,best=lsGet('best',0),last=lsGet('last',0),shifts=lsGet('shifts',0);
-  $('#kpis').innerHTML=kpi('layers','Lessons',LESSONS.length)+kpi('clipboard','Steps',total)+kpi('shield','Steps visited',vis+' <em>('+pct+'%)</em>')+kpi('rocket','Best shift score',best)+kpi('clock','Day streak',streakDays());
+  $('#kpis').innerHTML=kpi('layers','Lessons',LESSONS.length)+kpi('clipboard','Steps',total)+kpi('shield','Steps visited',vis+' <em>('+pct+'%)</em>')+kpi('cloud','AWS guides read',svcSeen.length+'/'+svcGuides().length)+kpi('clock','Day streak',streakDays());
   $('#progTop').innerHTML='<div class="ptop">'+donut(pct)+'<ul class="plg"><li><i style="background:#2fe8c4"></i>Visited <b>'+vis+'</b></li><li><i style="background:#16303a"></i>Remaining <b>'+(total-vis)+'</b></li><li><i style="background:#35b7ff"></i>Lessons finished <b>'+done+'/'+LESSONS.length+'</b></li></ul></div>';
   $('#progList').innerHTML=LESSONS.map(function(L,k){
     var n=(seen[L.id]||[]).length,t=L.steps.length,pc=Math.round(n/t*100),col=LCOL[k%LCOL.length];
@@ -1144,19 +1144,48 @@ function renderDash(){
 }
 function tick(){
   var d=new Date(),dn=['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'],pad=function(n){return n<10?'0'+n:n};
-  $('#clock').textContent=d.getFullYear()+'.'+pad(d.getMonth()+1)+'.'+pad(d.getDate())+' '+dn[d.getDay()]+' '+pad(d.getHours())+':'+pad(d.getMinutes());
+  if(!$('#clock'))return;$('#clock').textContent=d.getFullYear()+'.'+pad(d.getMonth()+1)+'.'+pad(d.getDate())+' '+dn[d.getDay()]+' '+pad(d.getHours())+':'+pad(d.getMinutes());
 }
-$('#who').innerHTML=icSvg('user',20,{k:1})+'<span>Learner</span>';
+if($('#who'))$('#who').innerHTML=icSvg('user',20,{k:1})+'<span>Learner</span>';
 tick();setInterval(tick,30000);
 
 
+
+var SHORT={kubernetes:'Kubernetes',ec2:'EC2',s3:'S3',scaling:'Scaling',pipeline:'CI/CD'};
+function renderNav2(){
+  var mode=gameOn?'game':(labOn?'lab':(gpOn?'gp':''));
+  $('#lessons').innerHTML=LESSONS.map(function(L){return '<button class="tab" type="button" data-lesson="'+L.id+'"'+(L===cur&&!mode?' aria-current="true"':'')+'>'+icSvg(L.icon||'server',18)+esc(SHORT[L.id]||L.name)+'</button>'}).join('');
+  var items=[['game','firewall','Incident Room'],['lab','gear','Build Lab'],['gp','commit','Git Practice']];
+  $('#pMenu').innerHTML=items.map(function(i){return '<button type="button" data-'+i[0]+'="1"'+(mode===i[0]?' aria-current="true"':'')+'>'+icSvg(i[1],18)+i[2]+'</button>'}).join('');
+  var pb=$('#pBtn');pb.setAttribute('aria-current',mode?'true':'false');
+  var cn=items.filter(function(i){return i[0]===mode})[0];$('#pLab').textContent=cn?cn[2]:'Practice';
+}
+function renderTitle(){
+  var sv=(seen[cur.id]||[]).length,n=cur.steps.length;
+  $('#ltitle').innerHTML='<div class="lt-l"><span class="lt-ico">'+icSvg(cur.icon||'server',34)+'</span><div><h1>'+esc(cur.name)+'</h1><p>'+esc(cur.blurb)+'</p></div></div><div class="lt-r"><div class="row"><span>Step <b>'+(idx+1)+'</b> of '+n+'</span><span>'+sv+'/'+n+' visited</span></div><span class="pb"><i style="width:'+Math.round(sv/n*100)+'%"></i></span></div>';
+}
+document.addEventListener('click',function(e){
+  var pb=$('#pBtn'),pm=$('#pMenu');if(!pb)return;
+  var t=e.target.closest?e.target.closest('#pBtn'):null;
+  if(t){var o=pm.hidden;pm.hidden=!o;pb.setAttribute('aria-expanded',o?'true':'false');return}
+  if(!pm.hidden){pm.hidden=true;pb.setAttribute('aria-expanded','false')}
+});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){var pm=$('#pMenu');if(pm&&!pm.hidden){pm.hidden=true;$('#pBtn').setAttribute('aria-expanded','false');$('#pBtn').focus()}}});
+var FIT={};
+function fitStage(){
+  var g=$('#scn'),sv=$('#svg');if(!g||!sv)return;var b;try{b=g.getBBox()}catch(e){return}
+  if(!b||!b.width)return;
+  var u=FIT[cur.id],x1=b.x,y1=b.y,x2=b.x+b.width,y2=b.y+b.height;
+  if(u){x1=Math.min(x1,u[0]);y1=Math.min(y1,u[1]);x2=Math.max(x2,u[2]);y2=Math.max(y2,u[3])}
+  FIT[cur.id]=[x1,y1,x2,y2];
+  var w=x2-x1+70,h=y2-y1+56,cx=(x1+x2)/2,cy=(y1+y2)/2;
+  if(w/h<1.6)w=h*1.6;if(w/h>2.3)h=w/2.3;
+  sv.setAttribute('viewBox',(cx-w/2).toFixed(0)+' '+(cy-h/2).toFixed(0)+' '+w.toFixed(0)+' '+h.toFixed(0));
+  var wr=sv.parentNode;if(wr&&wr.scrollWidth>wr.clientWidth)wr.scrollLeft=(wr.scrollWidth-wr.clientWidth)/2;
+}
 function renderStatic(){
-  var gorder=[],gmap={};
-  LESSONS.forEach(function(L){if(!gmap[L.group]){gmap[L.group]=[];gorder.push(L.group)}gmap[L.group].push(L)});
-  $('#lessons').innerHTML=gorder.map(function(g){
-    return '<div class="grp"><span class="gl">'+esc(g)+'</span>'+gmap[g].map(function(L){return '<button class="tab" type="button" data-lesson="'+L.id+'"'+(L===cur&&!gameOn?' aria-current="true"':'')+'>'+icSvg(L.icon||'server',18)+esc(L.name)+'</button>'}).join('')+'</div>';
-  }).join('')+'<div class="grp"><span class="gl">Play</span><button class="tab" type="button" data-game="1"'+(gameOn?' aria-current="true"':'')+'>'+icSvg('firewall',18)+'Incident Room</button><button class="tab" type="button" data-lab="1"'+(labOn?' aria-current="true"':'')+'>'+icSvg('gear',18)+'Build Lab</button></div>';
-  $('#intro').textContent=cur.blurb;
+  renderNav2();
+  renderTitle();
   $('#partsList').innerHTML=(cur.parts||[]).map(function(p,k){return '<li style="animation-delay:'+(k*50)+'ms">'+icSvg(p[0],42,p[1])+'<div><b>'+esc(p[2])+'</b><span>'+esc(p[3])+'</span></div></li>'}).join('');
   $('#legend').innerHTML=cur.legend.map(function(l){return '<li><i class="'+l[0]+'"></i>'+esc(l[1])+'</li>'}).join('');
   var sv=seen[cur.id]||[];
@@ -1191,6 +1220,7 @@ function pick(id,i,fromHash){
   return false;
 }
 function fromHash(){
+  if(location.hash==='#gitlab'){if(!cur)cur=LESSONS[0];showGP(true);return}
   if(location.hash==='#lab'){if(!cur)cur=LESSONS[0];showLab(true);return}
   if(location.hash==='#game'){if(!cur)cur=LESSONS[0];showGame(true);return}
   hideGame();
@@ -1201,6 +1231,7 @@ function fromHash(){
 
 document.addEventListener('click',function(e){
   var t=e.target.closest?e.target.closest('button'):null;if(!t)return;
+  if(t.dataset.gp){showGP();return}
   if(t.dataset.lab){showLab();return}
   if(t.dataset.game){showGame();return}
   if(t.dataset.gopt!=null){gameAnswer(parseInt(t.dataset.gopt,10));return}
@@ -1229,7 +1260,7 @@ document.addEventListener('input',function(e){
 document.addEventListener('keydown',function(e){
   if(!$('#mdl').hidden)return;
   if(gameOn){if(GS&&GS.state==='q'&&/^[123]$/.test(e.key)){var ob=document.querySelectorAll('.opt')[+e.key-1];if(ob)ob.click()}return}
-  if(!$('#mdl').hidden)return;if(labOn)return;var tg=e.target&&e.target.tagName;if(tg==='INPUT'&&e.target.type==='range')return;
+  if(!$('#mdl').hidden)return;if(labOn||gpOn)return;var tg=e.target&&e.target.tagName;if(tg==='INPUT'&&e.target.type==='range')return;
   if(e.key==='ArrowRight')go(idx+1);else if(e.key==='ArrowLeft')go(idx-1);
 });
 /* ---------- AWS service guides ---------- */
@@ -1275,16 +1306,17 @@ var SECT=[
  {id:'scaling',kind:'lesson',lesson:'scaling',tag:'Architecture',icon:'lb'},
  {id:'pipeline',kind:'lesson',lesson:'pipeline',tag:'Delivery',icon:'rocket'},
  {id:'game',kind:'game',name:'Incident Room',tag:'Play',icon:'firewall'},
- {id:'lab',kind:'lab',name:'Build Lab',tag:'Practice',icon:'gear'}
+ {id:'lab',kind:'lab',name:'Build Lab',tag:'Practice',icon:'gear'},
+ {id:'gp',kind:'gp',name:'Git Practice',tag:'Practice',icon:'commit'}
 ];
 function lessonById(id){for(var i=0;i<LESSONS.length;i++)if(LESSONS[i].id===id)return LESSONS[i];return null}
 function secName(s){return s.name||lessonById(s.lesson).name}
 var MS='overview',MSVC=null,mLast=null;
-function mCur(){if(labOn)return 'lab';if(gameOn)return 'game';return (cur&&(cur.id==='ec2'||cur.id==='s3'))?'aws':(cur?cur.id:'overview')}
+function mCur(){if(gpOn)return 'gp';if(labOn)return 'lab';if(gameOn)return 'game';return (cur&&(cur.id==='ec2'||cur.id==='s3'))?'aws':(cur?cur.id:'overview')}
 function mOpen(){mLast=document.activeElement;MS=mCur();MSVC=null;$('#mdl').hidden=false;try{document.body.style.overflow='hidden'}catch(e){}mRender();$('#mclose').focus()}
 function mClose(){$('#mdl').hidden=true;try{document.body.style.overflow=''}catch(e){}if(mLast&&mLast.focus)mLast.focus()}
 function secProg(s){
-  if(s.kind==='game'||s.kind==='lab')return null;
+  if(s.kind==='game'||s.kind==='lab'||s.kind==='gp')return null;
   if(s.kind==='lesson'){var L=lessonById(s.lesson);return [(seen[L.id]||[]).length,L.steps.length]}
   var n=0,t=0;['ec2','s3'].forEach(function(id){var L=lessonById(id);n+=(seen[id]||[]).length;t+=L.steps.length});
   return [n+svcSeen.length,t+svcGuides().length];
@@ -1293,6 +1325,7 @@ function mCard(s){
   var pr=secProg(s),blurb,meta;
   if(s.kind==='lesson'){var L=lessonById(s.lesson);blurb=L.blurb;meta=L.steps.length+' steps'}
   else if(s.kind==='aws'){blurb='Hands-on EC2 and S3 lessons, plus short guides to '+svcGuides().length+' more AWS services.';meta='2 lessons · '+svcGuides().length+' guides'}
+  else if(s.kind==='gp'){blurb='A practice repo you drive with real git commands. Watch the three areas and the commit graph change.';meta='6 missions'}
   else if(s.kind==='lab'){blurb='Design your own infrastructure, send traffic through it and see what it costs and where it breaks.';meta='5 goals'}
   else{blurb='An on-call game. Read the alert, pick your first move and beat the clock.';meta='Best '+lsGet('best',0)}
   return '<button class="scard" type="button" data-mgo="'+s.id+'"><span class="sh"><span class="sico">'+icSvg(s.icon,30)+'</span><span><span class="st">'+esc(s.tag)+'</span><span class="sn">'+esc(secName(s))+'</span></span></span><span class="sp">'+esc(blurb)+'</span><span class="smeta"><span>'+esc(meta)+'</span><span>'+(pr?pr[0]+'/'+pr[1]:'Play')+' →</span></span>'+(pr?'<span class="pb"><i style="width:'+Math.round(pr[0]/pr[1]*100)+'%"></i></span>':'')+'</button>';
@@ -1312,11 +1345,14 @@ function mRender(){
   $('#mside').innerHTML=side;
   var title,sub,body='',s=null,i;
   for(i=0;i<SECT.length;i++)if(SECT[i].id===MS)s=SECT[i];
-  if(MS==='overview'||!s){title='All sections';sub='Everything in OpsLens in one place. Pick a section on the left or a card below.';body='<div class="sgrid">'+SECT.map(mCard).join('')+'</div>'}
+  if(MS==='overview'||!s){title='All sections';sub='Everything in OpsLens in one place. Pick a section on the left or a card below.';renderDash();body='<div class="kpis">'+$('#kpis').innerHTML+'</div><div class="sgrid">'+SECT.map(mCard).join('')+'</div><div class="bottom">'+$('#bottom').innerHTML+'</div>'}
   else if(s.kind==='lesson'){
     var L=lessonById(s.lesson),sv=seen[L.id]||[];
     title=L.name;sub=L.blurb;
     body='<ol class="msteps">'+L.steps.map(function(st,k){return '<li><button class="mstep" type="button" data-mstep="'+L.id+':'+k+'"><span class="mnum'+(sv.indexOf(k)>-1?' ok':'')+'">'+(sv.indexOf(k)>-1?'✓':(k+1))+'</span><span class="mtx"><b>'+esc(st.label)+'</b><span>'+esc(st.title)+'</span></span><span class="chipTag">'+esc(st.tag)+'</span></button></li>'}).join('')+'</ol>';
+  }else if(s.kind==='gp'){
+    title='Git Practice';sub='Type real git commands in a safe practice repo.';
+    body='<div class="mgame"><p>Stage, commit, branch, merge, undo, stash and push. Six missions guide you, and a live commit graph shows what each command does.</p><button class="btn run" type="button" data-mgp="1">Open Git Practice</button></div>';
   }else if(s.kind==='lab'){
     title='Build Lab';sub='Design your own infrastructure and test it.';
     body='<div class="mgame"><p>Add blocks such as a CDN, load balancer, servers, cache and database. Link them, set the traffic level, and check your design against five goals.</p><button class="btn run" type="button" data-mlab="1">Open the Build Lab</button></div>';
@@ -1349,6 +1385,7 @@ document.addEventListener('click',function(e){
   if(t.dataset.mlesson){mClose();pick(t.dataset.mlesson,0);return}
   if(t.dataset.mgame){mClose();showGame();return}
   if(t.dataset.mlab){mClose();showLab();return}
+  if(t.dataset.mgp){mClose();showGP();return}
 });
 document.addEventListener('keydown',function(e){
   if($('#mdl').hidden)return;
@@ -1531,7 +1568,7 @@ function showLab(fromH){
   if(!fromH){try{history.replaceState(null,'','#lab')}catch(e){location.hash='lab'}}
   try{window.scrollTo(0,0)}catch(e){}
 }
-function hideLab(){if(!labOn)return;labOn=false;labMode=false;labFrom=null;$('.app').classList.remove('lb')}
+function hideLab(){hideGP();if(!labOn)return;labOn=false;labMode=false;labFrom=null;$('.app').classList.remove('lb')}
 function labPt(e){var sv=$('#lsvg'),m=sv.getScreenCTM();if(!m)return [0,0];var p=sv.createSVGPoint();p.x=e.clientX;p.y=e.clientY;p=p.matrixTransform(m.inverse());return [p.x,p.y]}
 document.addEventListener('pointerdown',function(e){
   if(!labOn||!e.target.closest)return;
@@ -1578,6 +1615,339 @@ document.addEventListener('input',function(e){
 document.addEventListener('keydown',function(e){
   if(!labOn)return;var tg=e.target&&e.target.tagName;if(tg==='INPUT'||tg==='BUTTON')return;
   if(e.key==='Delete'||e.key==='Backspace'){labDel();e.preventDefault()}
+});
+
+/* ---------- Git Practice: a simulated repo you drive with real git commands ---------- */
+var gpOn=false,GP=null,gpBuilt=false,gpHist=[],gpHi=0,gpClr=0;
+var GPM=[
+ ['commit','Make your first commit','Create a file, stage it, commit it.','echo "hello" > notes.txt  →  git add notes.txt  →  git commit -m "Add notes"'],
+ ['branch','Work on a branch','Create a branch and commit on it.','git switch -c feature  →  (edit a file)  →  git add .  →  git commit -m "..."'],
+ ['merge','Merge it back','Switch to main and merge your branch.','git switch main  →  git merge feature'],
+ ['revert','Undo safely','Undo a commit without rewriting history.','git revert HEAD'],
+ ['push','Share your work','Push to the remote called origin.','git push origin main'],
+ ['pop','Stash and restore','Shelve unfinished work, then bring it back.','(edit a tracked file)  →  git stash  →  git stash pop']
+];
+var GPHELP=[
+ ['ls · cat f · touch f · rm f','Look at, create and delete files'],
+ ['echo "text" > f   (>> appends)','Write text into a file (this is how you edit here)'],
+ ['git status','What changed, and what is staged'],
+ ['git add f   /   git add .','Stage a file / everything'],
+ ['git commit -m "msg"   (-am)','Save staged changes (-a also stages tracked files)'],
+ ['git log   --oneline','Show history'],
+ ['git diff   --staged','See exact changes (unstaged / staged)'],
+ ['git branch   name   -d name','List, create, delete branches'],
+ ['git switch name   -c name','Move to a branch / create and move'],
+ ['git checkout name   -b name','Older way to do the same'],
+ ['git merge name','Join a branch into the current one'],
+ ['git restore f   --staged f','Discard edits / unstage'],
+ ['git reset --soft|--hard HEAD~1','Move the branch back (soft keeps changes staged, hard discards)'],
+ ['git revert HEAD','Add a new commit that undoes one'],
+ ['git stash   pop   list','Shelve work and bring it back'],
+ ['git remote -v · fetch · pull · push','Work with origin (the shared copy)']
+];
+function gpFresh(){var t={'README.md':'# project\nMy first repo'};return {files:{'README.md':t['README.md']},idx:{'README.md':t['README.md']},head:'main',det:null,branches:{main:'a1b2c3d'},commits:{a1b2c3d:{p:[],m:'Initial commit',t:t,n:0,u:0}},remote:{main:'a1b2c3d'},track:{main:'a1b2c3d'},stash:[],seq:1,did:{},merging:null,log:[{k:'o',t:'Practice repo ready. Type help, or tap a command below. Work through the missions on the right.'}]}}
+function gpLoad(){var d=lsGet('gp',null);return d&&d.files&&d.commits?d:gpFresh()}
+function gpSave(){if(GP.log.length>160)GP.log=GP.log.slice(-160);lsSet('gp',GP)}
+function cp(o){var r={};for(var k in o)r[k]=o[k];return r}
+function hId(){var id;do{GP.seq++;id=('0000000'+(Math.imul(GP.seq,2654435761)>>>0).toString(16)).slice(-7)}while(GP.commits[id]);return id}
+function hEq(a,b){var k;for(k in a)if(a[k]!==b[k])return false;for(k in b)if(a[k]!==b[k])return false;return true}
+function hid(){return GP.det||GP.branches[GP.head]}
+function hTree(){return GP.commits[hid()].t}
+function anc(id){var s={},q=[id];while(q.length){var x=q.pop();if(!x||s[x])continue;s[x]=1;GP.commits[x].p.forEach(function(p){q.push(p)})}return s}
+function resolve(r){
+  if(!r)return null;var m=/^(HEAD|[\w\/.-]+?)(?:~(\d+)|(\^+))?$/.exec(r),base,n,id,i;if(!m)return null;
+  base=m[1];n=m[2]?+m[2]:(m[3]?m[3].length:0);
+  if(base==='HEAD')id=hid();else if(GP.branches[base])id=GP.branches[base];else if(/^origin\//.test(base)&&GP.track[base.slice(7)])id=GP.track[base.slice(7)];
+  else{var ks=Object.keys(GP.commits).filter(function(k){return k.indexOf(base)===0});if(ks.length===1)id=ks[0]}
+  for(i=0;i<n&&id;i++)id=GP.commits[id].p[0];return id||null;
+}
+function setTree(t){var old=cp(GP.idx),k;for(k in hTree())old[k]=1;for(k in old)if(!(k in t))delete GP.files[k];for(k in t)GP.files[k]=t[k];GP.idx=cp(t)}
+function gpDirty(){var ht=hTree(),k;for(k in GP.idx)if(GP.idx[k]!==ht[k])return true;for(k in ht)if(GP.idx[k]===undefined)return true;for(k in GP.idx)if(GP.files[k]!==GP.idx[k])return true;return false}
+function gpMsgStatus(){
+  var ht=hTree(),o=[],k,st=[],un=[],ut=[],mm=GP.merging;
+  o.push(GP.det?'HEAD detached at '+GP.det:'On branch '+GP.head);
+  var tr=!GP.det&&GP.track[GP.head];
+  if(tr){var a=anc(hid()),b=anc(tr),ah=Object.keys(a).filter(function(x){return !b[x]}).length,bh=Object.keys(b).filter(function(x){return !a[x]}).length;
+    if(!ah&&!bh)o.push("Your branch is up to date with 'origin/"+GP.head+"'.");
+    else if(ah&&!bh)o.push("Your branch is ahead of 'origin/"+GP.head+"' by "+ah+" commit"+(ah>1?'s':'')+'.\n  (use "git push" to publish your local commits)');
+    else if(bh&&!ah)o.push("Your branch is behind 'origin/"+GP.head+"' by "+bh+" commit"+(bh>1?'s':'')+', and can be fast-forwarded.\n  (use "git pull" to update your local branch)');
+    else o.push("Your branch and 'origin/"+GP.head+"' have diverged.")}
+  for(k in GP.idx){if(ht[k]===undefined)st.push('new file:   '+k);else if(ht[k]!==GP.idx[k])st.push('modified:   '+k)}
+  for(k in ht)if(GP.idx[k]===undefined)st.push('deleted:    '+k);
+  for(k in GP.idx){if(GP.files[k]===undefined)un.push('deleted:    '+k);else if(GP.files[k]!==GP.idx[k])un.push('modified:   '+k)}
+  for(k in GP.files)if(GP.idx[k]===undefined)ut.push(k);
+  if(mm&&mm.conf.length){o.push('You have unmerged paths.\n  (fix conflicts and run "git commit")\n\nUnmerged paths:\n'+mm.conf.map(function(f){return '\tboth modified:   '+f}).join('\n'));}
+  else if(mm)o.push('All conflicts fixed but you are still merging.\n  (use "git commit" to conclude merge)');
+  if(st.length)o.push('Changes to be committed:\n  (use "git restore --staged <file>..." to unstage)\n'+st.map(function(x){return '\t'+x}).join('\n'));
+  if(un.length)o.push('Changes not staged for commit:\n  (use "git add <file>..." to update what will be committed)\n'+un.map(function(x){return '\t'+x}).join('\n'));
+  if(ut.length)o.push('Untracked files:\n  (use "git add <file>..." to include in what will be committed)\n'+ut.map(function(x){return '\t'+x}).join('\n'));
+  if(!st.length&&!un.length&&!ut.length&&!mm)o.push('nothing to commit, working tree clean');
+  else if(!st.length&&(un.length||ut.length)&&!mm)o.push(un.length?'no changes added to commit (use "git add" and/or "git commit -a")':'nothing added to commit but untracked files present (use "git add" to track)');
+  return o.join('\n\n').replace(/\n\n(Your branch|  \()/g,'\n$1');
+}
+function gpMerge(other,label){
+  var me=hid();if(!other)return ['error',"merge: "+label+' - not something we can merge'];
+  var A=anc(me),B=anc(other);
+  if(A[other])return ['ok','Already up to date.'];
+  if(B[me]){ if(gpDirty())return ['error','error: Your local changes would be overwritten by merge. Commit or stash them first.'];
+    var o=me.slice(0,7)+'..'+other.slice(0,7);if(GP.det)GP.det=other;else GP.branches[GP.head]=other;setTree(GP.commits[other].t);GP.did.merge=1;return ['ok','Updating '+o+'\nFast-forward\n (branch pointer moved, no new commit needed)']}
+  if(gpDirty())return ['error','error: Your local changes would be overwritten by merge. Commit or stash them first.'];
+  var base=null,bn=-1,x;for(x in A)if(B[x]&&GP.commits[x].n>bn){bn=GP.commits[x].n;base=x}
+  var bt=GP.commits[base].t,ot=hTree(),tt=GP.commits[other].t,res={},conf=[],names={},k;
+  [bt,ot,tt].forEach(function(t){for(k in t)names[k]=1});
+  for(k in names){var b=bt[k],o2=ot[k],t2=tt[k],v;
+    if(o2===t2)v=o2;else if(o2===b)v=t2;else if(t2===b)v=o2;else{conf.push(k);v='<<<<<<< HEAD\n'+o2+'\n=======\n'+t2+'\n>>>>>>> '+label}
+    if(v!==undefined)res[k]=v}
+  var msg="Merge branch '"+label+"'";
+  if(conf.length){
+    var idxn=cp(res);conf.forEach(function(f){idxn[f]=ot[f]});for(k in idxn)if(idxn[k]===undefined)delete idxn[k];
+    for(k in res)GP.files[k]=res[k];GP.idx=idxn;GP.merging={other:other,msg:msg,conf:conf};
+    return ['error',conf.map(function(f){return 'CONFLICT (content): Merge conflict in '+f}).join('\n')+'\nAutomatic merge failed; fix conflicts and then commit the result.\n(Open the file with cat '+conf[0]+', replace it with the text you want using echo "..." > '+conf[0]+', then git add and git commit.)']}
+  var id=hId();GP.commits[id]={p:[me,other],m:msg,t:res,n:++GP.seq,u:1};
+  if(GP.det)GP.det=id;else GP.branches[GP.head]=id;setTree(res);GP.did.merge=1;
+  return ['ok',"Merge made by the 'ort' strategy.\n[merge commit "+id+'] '+msg];
+}
+function gpDiffOut(a,b,names){
+  var o=[],k;for(k in names){if(a[k]===b[k])continue;
+    o.push('diff --git a/'+k+' b/'+k+(a[k]===undefined?'\nnew file':'')+(b[k]===undefined?'\ndeleted file':'')+'\n--- a/'+k+'\n+++ b/'+k+'\n@@ changes @@');
+    if(a[k]!==undefined)a[k].split('\n').forEach(function(l){o.push('-'+l)});
+    if(b[k]!==undefined)b[k].split('\n').forEach(function(l){o.push('+'+l)})}
+  return o.join('\n');
+}
+function gpRefs(){var m={},id;Object.keys(GP.branches).forEach(function(b){(m[GP.branches[b]]=m[GP.branches[b]]||[]).push(b)});
+  Object.keys(GP.track).forEach(function(b){(m[GP.track[b]]=m[GP.track[b]]||[]).push('origin/'+b)});
+  id=hid();var h=m[id]||(m[id]=[]);var cur=GP.det?'HEAD':'HEAD -> '+GP.head;
+  var i=h.indexOf(GP.head);if(!GP.det&&i>-1)h.splice(i,1);h.unshift(cur);return m}
+function gpLogOut(args){
+  var one=args.indexOf('--oneline')>-1,nI=args.indexOf('-n'),lim=nI>-1?+args[nI+1]:999,refs=gpRefs(),a=anc(hid()),ids=Object.keys(a).sort(function(x,y){return GP.commits[y].n-GP.commits[x].n}).slice(0,lim);
+  return ids.map(function(id){var c=GP.commits[id],dec=refs[id]?' ('+refs[id].join(', ')+')':'';
+    if(one)return id+dec+' '+c.m;
+    return 'commit '+id+dec+(c.p.length>1?'\nMerge: '+c.p.join(' '):'')+'\nAuthor: '+(c.who||'You <you@example.com>')+'\nDate:   Sun Nov 22 '+('0'+(9+Math.floor(c.n/60))).slice(-2)+':'+('0'+(c.n%60)).slice(-2)+':00 2026 +0530\n\n    '+c.m}).join(one?'\n':'\n\n');
+}
+function gpCommit(args){
+  var mi=args.indexOf('-m'),am=args.indexOf('-am'),all=args.indexOf('-a')>-1||am>-1,msg=null,k;
+  if(am>-1)msg=args[am+1];else if(mi>-1)msg=args[mi+1];
+  if(all)for(k in GP.idx){if(GP.files[k]===undefined)delete GP.idx[k];else GP.idx[k]=GP.files[k]}
+  var ht=hTree(),diff=false;for(k in GP.idx)if(GP.idx[k]!==ht[k])diff=true;for(k in ht)if(GP.idx[k]===undefined)diff=true;
+  if(GP.merging){
+    if(GP.merging.conf.length)return ['error','error: Committing is not possible because you have unmerged files.\nhint: Fix them up in the work tree, and then use "git add <file>" to mark them resolved.'];
+    var idm=hId();GP.commits[idm]={p:[hid(),GP.merging.other],m:msg||GP.merging.msg,t:cp(GP.idx),n:++GP.seq,u:1};
+    if(GP.det)GP.det=idm;else GP.branches[GP.head]=idm;GP.merging=null;GP.did.merge=1;GP.did.commit=1;return ['ok','['+(GP.det?'detached HEAD':GP.head)+' '+idm+'] '+GP.commits[idm].m];
+  }
+  if(!diff){var un=false;for(k in GP.idx)if(GP.files[k]!==GP.idx[k])un=true;for(k in GP.files)if(GP.idx[k]===undefined)un=true;
+    return ['error','On branch '+GP.head+'\n'+(un?'no changes added to commit (use "git add" and/or "git commit -a")':'nothing to commit, working tree clean')]}
+  if(!msg)return ['error','Aborting commit due to empty commit message. Use: git commit -m "your message"'];
+  var id=hId(),c={p:[hid()],m:msg,t:cp(GP.idx),n:++GP.seq,u:1};GP.commits[id]=c;
+  if(GP.det)GP.det=id;else GP.branches[GP.head]=id;GP.did.commit=1;
+  var ch=0;for(k in c.t)if(ht[k]!==c.t[k])ch++;for(k in ht)if(c.t[k]===undefined)ch++;
+  return ['ok','['+(GP.det?'detached HEAD':GP.head)+' '+id+'] '+msg+'\n '+ch+' file'+(ch>1?'s':'')+' changed'];
+}
+function gpSwitch(args,create){
+  var name=args.filter(function(a){return a[0]!=='-'})[0],c=create||args.indexOf('-b')>-1||args.indexOf('-c')>-1||args.indexOf('-B')>-1;
+  if(!name)return ['error','error: missing branch name'];
+  if(c){if(GP.branches[name])return ['error',"fatal: a branch named '"+name+"' already exists"];GP.branches[name]=hid();GP.head=name;GP.det=null;GP.did.branch=1;return ['ok',"Switched to a new branch '"+name+"'"]}
+  var tid=GP.branches[name]||(GP.track[name.replace(/^origin\//,'')]&&/^origin\//.test(name)?GP.track[name.slice(7)]:null),isB=!!GP.branches[name];
+  if(!tid){var r=resolve(name);if(r){tid=r}}
+  if(!tid)return ['error',"error: pathspec '"+name+"' did not match any known branch"];
+  if(GP.merging)return ['error','error: you need to resolve your current merge first'];
+  var tt=GP.commits[tid].t;
+  if(gpDirty()&&!hEq(tt,hTree()))return ['error','error: Your local changes would be overwritten by checkout.\nCommit your changes or stash them before you switch branches.'];
+  if(!gpDirty())setTree(tt);
+  if(isB){GP.head=name;GP.det=null;return ['ok',"Switched to branch '"+name+"'"]}
+  GP.det=tid;return ['ok','Note: switching to \''+name+"'.\nYou are in 'detached HEAD' state. Create a branch with: git switch -c <name>"];
+}
+function gpGit(a){
+  var c=a[0],args=a.slice(1),k,r;
+  switch(c){
+  case 'init':return ['ok','Reinitialized existing Git repository in /home/you/project/.git/'];
+  case 'status':return ['o',gpMsgStatus()];
+  case 'add':{
+    var ps=args.filter(function(x){return x[0]!=='-'});if(!ps.length)return ['error','Nothing specified, nothing added.'];
+    if(ps[0]==='.'||ps[0]==='-A'||args.indexOf('-A')>-1){for(k in GP.files)GP.idx[k]=GP.files[k];for(k in GP.idx)if(GP.files[k]===undefined)delete GP.idx[k]}
+    else for(var i=0;i<ps.length;i++){var f=ps[i];if(GP.files[f]!==undefined)GP.idx[f]=GP.files[f];else if(GP.idx[f]!==undefined)delete GP.idx[f];else return ['error',"fatal: pathspec '"+f+"' did not match any files"]}
+    if(GP.merging)GP.merging.conf=GP.merging.conf.filter(function(f){return GP.idx[f]!==GP.commits[hid()].t[f]||GP.files[f].indexOf('<<<<<<<')<0&&true}).filter(function(f){return GP.files[f]!==undefined&&GP.files[f].indexOf('<<<<<<<')>-1});
+    return ['o',''];}
+  case 'commit':return gpCommit(args);
+  case 'log':return ['o',gpLogOut(args)];
+  case 'diff':{var staged=args.indexOf('--staged')>-1||args.indexOf('--cached')>-1,names={};
+    if(staged){for(k in GP.idx)names[k]=1;for(k in hTree())names[k]=1;return ['o',gpDiffOut(hTree(),GP.idx,names)]}
+    for(k in GP.idx)names[k]=1;var cur={};for(k in GP.idx)cur[k]=GP.files[k];return ['o',gpDiffOut(GP.idx,cur,names)];}
+  case 'branch':{
+    var del=args.indexOf('-d')>-1||args.indexOf('-D')>-1,force=args.indexOf('-D')>-1,nm=args.filter(function(x){return x[0]!=='-'});
+    if(del){var b=nm[0];if(!GP.branches[b])return ['error',"error: branch '"+b+"' not found"];if(b===GP.head)return ['error',"error: cannot delete branch '"+b+"' used by worktree"];
+      if(!force&&!anc(hid())[GP.branches[b]])return ['error',"error: the branch '"+b+"' is not fully merged.\nIf you are sure you want to delete it, run 'git branch -D "+b+"'."];
+      var old=GP.branches[b];delete GP.branches[b];return ['ok',"Deleted branch "+b+" (was "+old+")."]}
+    if(nm.length){if(GP.branches[nm[0]])return ['error',"fatal: a branch named '"+nm[0]+"' already exists"];GP.branches[nm[0]]=hid();GP.did.branch=1;return ['o','']}
+    return ['o',Object.keys(GP.branches).sort().map(function(b){return (b===GP.head&&!GP.det?'* ':'  ')+b}).join('\n')];}
+  case 'switch':return gpSwitch(args,false);
+  case 'checkout':{var dd=args.indexOf('--');if(dd>-1||(args.length&&GP.files[args[0]]!==undefined&&!GP.branches[args[0]])){var f2=args[dd>-1?dd+1:0];if(GP.idx[f2]===undefined)return ['error',"error: pathspec '"+f2+"' did not match any file(s) known to git"];GP.files[f2]=GP.idx[f2];return ['o','Updated 1 path from the index']}return gpSwitch(args,false)}
+  case 'merge':{var o=args.filter(function(x){return x[0]!=='-'})[0];if(!o)return ['error','fatal: specify a branch to merge'];if(GP.merging)return ['error','fatal: You have not concluded your merge (MERGE_HEAD exists).'];
+    var id=GP.branches[o]||(/^origin\//.test(o)?GP.track[o.slice(7)]:null);if(!id)return ['error',o+' - not something we can merge'];return gpMerge(id,o)}
+  case 'restore':{var stg=args.indexOf('--staged')>-1,fs=args.filter(function(x){return x[0]!=='-'});if(!fs.length)return ['error','fatal: you must specify path(s) to restore'];
+    for(var j=0;j<fs.length;j++){var f3=fs[j];if(stg){var hv=hTree()[f3];if(hv===undefined)delete GP.idx[f3];else GP.idx[f3]=hv}else{if(GP.idx[f3]===undefined)return ['error',"error: pathspec '"+f3+"' did not match any file(s) known to git"];GP.files[f3]=GP.idx[f3]}}
+    return ['o',''];}
+  case 'rm':{var f4=args.filter(function(x){return x[0]!=='-'})[0];if(!f4||GP.idx[f4]===undefined)return ['error',"fatal: pathspec '"+f4+"' did not match any files"];delete GP.files[f4];delete GP.idx[f4];return ['o',"rm '"+f4+"'"]}
+  case 'reset':{
+    var mode=args.indexOf('--hard')>-1?'hard':(args.indexOf('--soft')>-1?'soft':'mixed'),tg=args.filter(function(x){return x[0]!=='-'})[0];
+    if(tg&&!resolve(tg)&&GP.idx[tg]!==undefined||(tg&&hTree()[tg]!==undefined&&!resolve(tg))){var hv2=hTree()[tg];if(hv2===undefined)delete GP.idx[tg];else GP.idx[tg]=hv2;return ['o','Unstaged changes after reset:']}
+    var id2=tg?resolve(tg):hid();if(!id2)return ['error',"fatal: ambiguous argument '"+tg+"': unknown revision"];
+    if(mode==='hard'&&gpDirty()&&id2===hid()){}
+    if(GP.det)GP.det=id2;else GP.branches[GP.head]=id2;
+    if(mode!=='soft')GP.idx=cp(GP.commits[id2].t);
+    if(mode==='hard'){var keep={};for(k in GP.files)if(GP.idx[k]===undefined&&hTreeHas(k)===false)keep[k]=GP.files[k];var nf=cp(GP.idx);for(k in keep)nf[k]=keep[k];GP.files=nf}
+    GP.did.reset=1;return ['ok','HEAD is now at '+id2+' '+GP.commits[id2].m];}
+  case 'revert':{
+    if(gpDirty())return ['error','error: your local changes would be overwritten by revert. Commit or stash them first.'];
+    var tgt=resolve(args.filter(function(x){return x[0]!=='-'})[0]||'HEAD'),cm=tgt&&GP.commits[tgt];
+    if(!cm)return ['error','fatal: bad revision'];if(cm.p.length!==1)return ['error','error: commit '+tgt+' is a '+(cm.p.length?'merge commit':'root commit')+', so it cannot be reverted directly here.\nTip: run git log --oneline and revert a regular commit, for example git revert HEAD~1'];
+    var pt=GP.commits[cm.p[0]].t,nt=cp(hTree()),nm2={};for(k in cm.t)nm2[k]=1;for(k in pt)nm2[k]=1;
+    for(k in nm2)if(cm.t[k]!==pt[k]){if(pt[k]===undefined)delete nt[k];else nt[k]=pt[k]}
+    var rid=hId();GP.commits[rid]={p:[hid()],m:'Revert "'+cm.m+'"',t:nt,n:++GP.seq,u:1};if(GP.det)GP.det=rid;else GP.branches[GP.head]=rid;setTree(nt);GP.did.revert=1;
+    return ['ok','['+(GP.det?'detached HEAD':GP.head)+' '+rid+'] Revert "'+cm.m+'"'];}
+  case 'stash':{
+    var sub=args[0]||'push';
+    if(sub==='list')return ['o',GP.stash.map(function(s,i){return 'stash@{'+i+'}: WIP on '+s.b+': '+s.h}).join('\n')];
+    if(sub==='pop'||sub==='apply'){if(!GP.stash.length)return ['error','No stash entries found.'];var s=GP.stash[0];for(k in s.f)GP.files[k]=s.f[k];if(sub==='pop'){GP.stash.shift();GP.did.pop=1}return ['ok','Applied stashed changes.\n'+(sub==='pop'?'Dropped stash entry.':'')]}
+    if(!gpDirty()){return ['error','No local changes to save']}
+    var sf={},tt2=hTree();for(k in GP.idx)if(GP.files[k]!==tt2[k]&&GP.files[k]!==undefined)sf[k]=GP.files[k];for(k in GP.idx)if(GP.idx[k]!==tt2[k]&&sf[k]===undefined)sf[k]=GP.idx[k];
+    GP.stash.unshift({f:sf,b:GP.det?'(detached)':GP.head,h:hid()+' '+GP.commits[hid()].m});setTree(tt2);GP.did.stash=1;
+    return ['ok','Saved working directory and index state WIP on '+GP.head+': '+hid()+' '+GP.commits[hid()].m];}
+  case 'remote':return ['o',args.indexOf('-v')>-1?'origin\thttps://github.com/you/project.git (fetch)\norigin\thttps://github.com/you/project.git (push)':'origin'];
+  case 'fetch':{var out=[],b2;for(b2 in GP.remote){if(GP.track[b2]!==GP.remote[b2]){out.push('   '+(GP.track[b2]||'(new)').slice(0,7)+'..'+GP.remote[b2].slice(0,7)+'  '+b2+' -> origin/'+b2);GP.track[b2]=GP.remote[b2]}}
+    return ['o',out.length?'From github.com:you/project\n'+out.join('\n'):''];}
+  case 'pull':{
+    var br=GP.head,fo=[];if(GP.det)return ['error','You are not currently on a branch.'];
+    if(!GP.remote[br])return ['error','There is no tracking information for the current branch.\nPush it first: git push -u origin '+br];
+    if(GP.track[br]!==GP.remote[br]){fo.push('From github.com:you/project\n   '+(GP.track[br]||'').slice(0,7)+'..'+GP.remote[br].slice(0,7)+'  '+br+' -> origin/'+br);GP.track[br]=GP.remote[br]}
+    var mr=gpMerge(GP.track[br],br);GP.did.pull=1;return [mr[0],(fo.concat([mr[1]])).join('\n')];}
+  case 'push':{
+    var pa=args.filter(function(x){return x[0]!=='-'}),pb=pa[1]||GP.head;if(GP.det&&!pa[1])return ['error','fatal: You are not currently on a branch.'];
+    var L=GP.branches[pb];if(!L)return ['error',"error: src refspec "+pb+" does not match any"];
+    var R=GP.remote[pb];
+    if(R===L)return ['o','Everything up-to-date'];
+    if(R&&!anc(L)[R])return ['error',' ! [rejected]        '+pb+' -> '+pb+' (fetch first)\nerror: failed to push some refs to \'github.com:you/project.git\'\nhint: Updates were rejected because the remote contains work that you do not have\nhint: locally. Integrate the remote changes (git pull) before pushing again.'];
+    GP.remote[pb]=L;GP.track[pb]=L;GP.did.push=1;
+    return ['ok','To github.com:you/project.git\n '+(R?R.slice(0,7)+'..'+L.slice(0,7):'* [new branch]')+'  '+pb+' -> '+pb];}
+  case 'config':return ['o',''];
+  case 'help':return ['o','Use the cheat sheet on the right, or type help.'];
+  default:return ['error',"git: '"+(c||'')+"' is not supported in this practice terminal. Type help to see what works."];
+  }
+}
+function hTreeHas(k){return hTree()[k]!==undefined}
+function gpTok(s){return (s.match(/"[^"]*"|'[^']*'|>>|>|\S+/g)||[]).map(function(t){return /^["'].*["']$/.test(t)?t.slice(1,-1):t})}
+function gpRun(line){
+  var out=[],t=gpTok(line),c=t[0];
+  if(!c)return out;
+  var r;
+  if(c==='git'){r=gpGit(t.slice(1))}
+  else if(c==='ls')r=['o',Object.keys(GP.files).sort().join('  ')];
+  else if(c==='pwd')r=['o','/home/you/project'];
+  else if(c==='cat'){var f=t[1];r=f&&GP.files[f]!==undefined?['o',GP.files[f]]:['error','cat: '+(f||'')+': No such file or directory']}
+  else if(c==='touch'){if(!t[1])r=['error','touch: missing file operand'];else{if(GP.files[t[1]]===undefined)GP.files[t[1]]='';r=['o','']}}
+  else if(c==='rm'){var f5=t[1];if(f5&&GP.files[f5]!==undefined){delete GP.files[f5];r=['o','']}else r=['error','rm: cannot remove \''+(f5||'')+'\': No such file or directory']}
+  else if(c==='echo'){var gi=t.indexOf('>>'),go=t.indexOf('>'),ix=gi>-1?gi:go;
+    if(ix<0)r=['o',t.slice(1).join(' ')];
+    else{var txt=t.slice(1,ix).join(' '),fn=t[ix+1];if(!fn)r=['error','bash: syntax error near unexpected token `newline\''];
+      else{GP.files[fn]=(gi>-1&&GP.files[fn]?GP.files[fn]+'\n':'')+txt;r=['o','']}}}
+  else if(c==='clear'){GP.log=[];return null}
+  else if(c==='help'){r=['o','Supported: ls, cat, touch, echo "x" > file, rm, clear, and these git commands: status, add, commit, log, diff, branch, switch, checkout, merge, restore, reset, revert, stash, remote, fetch, pull, push.']}
+  else r=['error','bash: '+c+': command not found'];
+  if(r&&r[1]!=='')out.push({k:r[0]==='error'?'e':(r[0]==='ok'?'g':'o'),t:r[1]});
+  return out;
+}
+function gpExec(line){
+  line=line.trim();if(!line)return;
+  GP.log.push({k:'c',t:line,p:gpPrompt()});
+  gpHist.push(line);gpHi=gpHist.length;
+  var o=gpRun(line);if(o)o.forEach(function(x){GP.log.push(x)});
+  gpMissions(true);gpSave();gpRender();
+}
+function gpPrompt(){return 'you@opslens:~/project'+(GP.det?' (detached)':' ('+GP.head+')')+'$'}
+function gpMDone(i){var d=GP.did,k=GPM[i][0];
+  if(k==='commit')return !!d.commit&&Object.keys(GP.commits).some(function(x){return GP.commits[x].u});
+  if(k==='branch')return !!d.branch&&Object.keys(GP.branches).some(function(b){if(b==='main')return false;var A=anc(GP.branches[b]),M=anc(GP.branches.main||hid());return Object.keys(A).some(function(x){return !M[x]&&GP.commits[x].u})||Object.keys(M).some(function(x){return A[x]&&GP.commits[x].u&&b!=='main'})});
+  if(k==='merge')return !!d.merge;if(k==='revert')return !!d.revert;if(k==='push')return !!d.push;if(k==='pop')return !!(d.stash&&d.pop);return false}
+function gpMissions(announce){
+  GP.mdone=GP.mdone||{};
+  GPM.forEach(function(m,i){if(!GP.mdone[m[0]]&&gpMDone(i)){GP.mdone[m[0]]=1;if(announce)GP.log.push({k:'g',t:'✔ Mission complete: '+m[1]})}});
+}
+/* commit graph */
+function gpGraph(){
+  var ids=Object.keys(GP.commits),reach={},tips=[],b;
+  for(b in GP.branches)tips.push(GP.branches[b]);for(b in GP.track)tips.push(GP.track[b]);for(b in GP.remote)tips.push(GP.remote[b]);if(GP.det)tips.push(GP.det);
+  tips.forEach(function(t){var a=anc(t),k;for(k in a)reach[k]=1});
+  var list=ids.filter(function(i){return reach[i]}).sort(function(a,b){return GP.commits[a].n-GP.commits[b].n}),gen={},lane={},ln=0;
+  list.forEach(function(id){var p=GP.commits[id].p;gen[id]=p.length?Math.max.apply(null,p.map(function(x){return gen[x]}))+1:0});
+  var order=['main'].concat(Object.keys(GP.branches).filter(function(x){return x!=='main'}));
+  order.forEach(function(br){if(!GP.branches[br])return;var cur=GP.branches[br],ch=[];
+    while(cur&&lane[cur]===undefined){ch.push(cur);cur=GP.commits[cur].p[0]}
+    var l=(cur===undefined||cur===null||ch.length===0)?0:null;
+    if(ch.length){var used=Object.keys(lane).map(function(k){return lane[k]});var nl=br==='main'?0:1;while(br!=='main'&&used.indexOf(nl)>-1&&nl<5&&!sharedOk(ch,nl))nl++;ch.forEach(function(x){lane[x]=nl})}});
+  function sharedOk(){return false}
+  list.forEach(function(id){if(lane[id]===undefined){var p=GP.commits[id].p[0];lane[id]=p&&lane[p]!==undefined?lane[p]:1}});
+  var maxG=0,maxL=0;list.forEach(function(id){maxG=Math.max(maxG,gen[id]);maxL=Math.max(maxL,lane[id])});
+  var X=function(id){return 56+gen[id]*118},Y=function(id){return 84+lane[id]*100},s='';
+  list.forEach(function(id){GP.commits[id].p.forEach(function(p){if(gen[p]===undefined)return;var x1=X(p),y1=Y(p),x2=X(id),y2=Y(id);
+    s+='<path d="M'+x1+','+y1+' C'+(x1+36)+','+y1+' '+(x2-36)+','+y2+' '+x2+','+y2+'" fill="none" stroke="#2fe8c4" stroke-opacity=".7" stroke-width="2.4"/>'})});
+  var refs=gpRefs();
+  list.forEach(function(id){var c=GP.commits[id],x=X(id),y=Y(id),isH=id===hid(),merge=c.p.length>1;
+    s+='<circle cx="'+x+'" cy="'+y+'" r="'+(isH?11:9)+'" fill="'+(merge?'#c58cff':(c.who?'#35b7ff':'#0b1a24'))+'" stroke="'+(isH?'#f2c744':'#2fe8c4')+'" stroke-width="'+(isH?3:2)+'" style="filter:drop-shadow(0 0 6px '+(isH?'#f2c744':'#2fe8c4')+')"/>'+
+      T(x,y+28,id.slice(0,7),'lbl xs','middle')+T(x,y+43,c.m.length>15?c.m.slice(0,14)+'…':c.m,'lbl sm','middle');
+    (refs[id]||[]).forEach(function(r,i){var rem=r.indexOf('origin/')===0,w=Math.max(40,r.length*7.4+14),yy=y-26-i*22;
+      s+='<rect x="'+(x-w/2)+'" y="'+(yy-14)+'" width="'+w+'" height="19" rx="9" fill="'+(r.indexOf('HEAD')===0?'rgba(242,199,68,.18)':'rgba(8,18,26,.9)')+'" stroke="'+(r.indexOf('HEAD')===0?'#f2c744':'#2fe8c4')+'"'+(rem?' stroke-dasharray="4 3"':'')+'/>'+T(x,yy,r,'lbl sm','middle')});
+  });
+  var W=Math.max(640,X(list[list.length-1]||0)+80),H=Math.max(200,84+maxL*100+70);
+  return '<svg viewBox="0 0 '+Math.max(W,56+maxG*118+80)+' '+H+'" style="min-width:'+Math.max(W,56+maxG*118+80)+'px" width="100%" role="img" aria-label="Commit graph">'+s+'</svg>';
+}
+function gpAreas(){
+  var ht=hTree(),wk=[],st=[],k;
+  for(k in GP.files){var cls=GP.idx[k]===undefined?'un':(GP.idx[k]!==GP.files[k]?'mod':'');wk.push('<li class="'+cls+'">'+esc(k)+(cls==='un'?' <em>untracked</em>':(cls==='mod'?' <em>modified</em>':''))+'</li>')}
+  for(k in GP.idx)if(ht[k]!==GP.idx[k])st.push('<li class="stg">'+esc(k)+(ht[k]===undefined?' <em>new</em>':' <em>changed</em>')+'</li>');
+  for(k in ht)if(GP.idx[k]===undefined)st.push('<li class="stg">'+esc(k)+' <em>deleted</em></li>');
+  var hc=GP.commits[hid()];
+  return '<div class="gpa"><h4>Working directory</h4><ul>'+(wk.join('')||'<li class="emp">empty</li>')+'</ul></div><div class="gpa"><h4>Staging area</h4><ul>'+(st.join('')||'<li class="emp">nothing staged</li>')+'</ul></div><div class="gpa"><h4>Repository</h4><ul><li>'+(GP.det?'detached':esc(GP.head))+' · '+Object.keys(anc(hid())).length+' commits</li><li class="emp">'+esc(hid().slice(0,7))+' '+esc(hc.m)+'</li></ul></div>';
+}
+function gpRender(){
+  if(!gpBuilt)return;
+  var o=$('#gpout');
+  o.innerHTML=GP.log.map(function(l){return l.k==='c'?'<div class="gln c"><span class="pp">'+esc(l.p||'$')+'</span> '+esc(l.t)+'</div>':'<div class="gln '+l.k+'">'+esc(l.t)+'</div>'}).join('');
+  o.scrollTop=o.scrollHeight;
+  $('#gpp').textContent=gpPrompt();
+  $('#gpgraph').innerHTML=gpGraph();$('#gpareas').innerHTML=gpAreas();
+  var nd=GPM.filter(function(m){return GP.mdone&&GP.mdone[m[0]]}).length,nxt=true;
+  $('#gpmis').innerHTML='<h3 class="ph">Missions <small>'+nd+' of '+GPM.length+' done</small></h3><ol class="gpm">'+GPM.map(function(m){var d=GP.mdone&&GP.mdone[m[0]],cur=!d&&nxt;if(!d)nxt=false;return '<li class="'+(d?'done':(cur?'now':''))+'"><span class="lck">'+(d?'✓':'○')+'</span><span><b>'+esc(m[1])+'</b><small>'+esc(m[2])+(cur?'<br><code>'+esc(m[3])+'</code>':'')+'</small></span></li>'}).join('')+'</ol>';
+}
+function gpBuild(){
+  gpBuilt=true;
+  $('#gp').innerHTML='<div class="labhead"><h2>Git Practice</h2><p>A safe practice repo. Type real git commands and watch the three areas and the commit graph change. Nothing here touches your real repositories.</p></div>'+
+   '<div class="gpgrid"><div class="gpleft"><div class="gpterm"><div class="gpout" id="gpout" role="log" aria-live="polite" aria-label="Terminal output"></div><div class="gpin"><span id="gpp" class="pp"></span><input id="gpin" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Type a command"></div></div>'+
+   '<div class="gpq" role="group" aria-label="Quick commands">'+['git status','git add .','git log --oneline','git branch','ls','git diff'].map(function(q){return '<button class="btn lpb" type="button" data-gpq="'+esc(q)+'">'+esc(q)+'</button>'}).join('')+'<button class="btn lpb" type="button" data-gpteam="1">Simulate a teammate push</button></div>'+
+   '<div class="gpareas" id="gpareas"></div><div class="panel"><h3 class="ph">Commit graph <small>(HEAD is yellow, dashed = origin)</small></h3><div class="gpg" id="gpgraph"></div></div></div>'+
+   '<div class="gpright"><section class="panel" id="gpmis"></section><section class="panel"><h3 class="ph">Cheat sheet</h3><div class="tw"><table class="tb"><thead><tr><th>Command</th><th>What it does</th></tr></thead><tbody>'+GPHELP.map(function(h){return '<tr><td><code>'+esc(h[0])+'</code></td><td>'+esc(h[1])+'</td></tr>'}).join('')+'</tbody></table></div></section>'+
+   '<div class="lrow"><button class="btn" type="button" id="gpreset">Reset practice repo</button></div></div></div>';
+}
+function showGP(fromH){
+  clearTimers();hideGame();gpOn=true;$('.app').classList.add('gp');
+  if(!GP)GP=gpLoad();if(!gpBuilt)gpBuild();
+  renderStatic();gpMissions(false);gpRender();
+  if(!fromH){try{history.replaceState(null,'','#gitlab')}catch(e){location.hash='gitlab'}}
+  try{window.scrollTo(0,0)}catch(e){}
+}
+function hideGP(){if(!gpOn)return;gpOn=false;$('.app').classList.remove('gp')}
+document.addEventListener('click',function(e){
+  if(!gpOn)return;var t=e.target.closest?e.target.closest('button'):null;if(!t){if(e.target.closest&&e.target.closest('.gpterm')){var i=$('#gpin');if(i)i.focus()}return}
+  if(t.dataset.gpq){gpExec(t.dataset.gpq);return}
+  if(t.dataset.gpteam){
+    var rm=GP.remote.main;if(!rm){return}
+    var id=hId(),tt=cp(GP.commits[rm].t);tt['team.txt']='Added by a teammate';GP.commits[id]={p:[rm],m:'Add team notes',t:tt,n:++GP.seq,u:0,who:'Sam <sam@example.com>'};GP.remote.main=id;
+    GP.log.push({k:'g',t:'Sam pushed a commit to origin/main. Your copy does not know yet. Run git fetch, or git pull.'});gpSave();gpRender();return}
+  if(t.id==='gpreset'){if(gpClr){GP=gpFresh();gpClr=0;t.textContent='Reset practice repo';gpSave();gpRender()}else{gpClr=1;t.textContent='Click again to confirm';setTimeout(function(){gpClr=0;t.textContent='Reset practice repo'},3000)}}
+});
+document.addEventListener('keydown',function(e){
+  if(!gpOn||e.target.id!=='gpin')return;var i=e.target;
+  if(e.key==='Enter'){var v=i.value;i.value='';gpExec(v);e.preventDefault()}
+  else if(e.key==='ArrowUp'){if(gpHi>0)gpHi--;i.value=gpHist[gpHi]||'';e.preventDefault()}
+  else if(e.key==='ArrowDown'){if(gpHi<gpHist.length)gpHi++;i.value=gpHist[gpHi]||'';e.preventDefault()}
 });
 
 window.addEventListener('hashchange',fromHash);
