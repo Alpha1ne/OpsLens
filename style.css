@@ -392,3 +392,60 @@ svg .lbl{paint-order:stroke;stroke:rgba(4,9,15,.9);stroke-width:3px;stroke-linej
  .mdl-top,.mdl-body{padding-left:16px;padding-right:16px}
  .tb td:first-child{white-space:normal}
 }
+
+/* ---- Build Lab ---- */
+#lab{display:none}
+.app.lb #intro,.app.lb #metrics,.app.lb #stagePanel,.app.lb #partsPanel,.app.lb #stepsPanel,.app.lb #card,.app.lb .side,.app.lb #kpis,.app.lb #bottom,.app.lb #game{display:none}
+.app.lb #lab{display:flex;flex-direction:column;gap:14px}
+.app.lb .deck{grid-template-columns:minmax(0,1fr)}
+.labhead h2{margin:0 0 4px;font:700 1.4rem var(--f-display)}
+.labhead p{margin:0;color:var(--muted);max-width:75ch}
+.labbar{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:space-between}
+.lpal{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.lpb{display:inline-flex;gap:7px;align-items:center;min-height:40px;padding:6px 12px;font-size:.84rem;box-shadow:none}
+.ltraf{display:flex;gap:10px;align-items:center;font:600 .84rem var(--f-body)}
+.ltraf input{width:150px;accent-color:#2fe8c4}
+.ltraf output{font:700 .84rem var(--f-mono);min-width:84px;color:var(--neon)}
+.labgrid{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:14px;align-items:start}
+.labcanvas{background:linear-gradient(180deg,rgba(18,36,48,.92),rgba(9,19,27,.94));border:1px solid rgba(47,232,196,.2);border-radius:12px;padding:6px;background-image:linear-gradient(rgba(47,232,196,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(47,232,196,.05) 1px,transparent 1px);background-size:30px 30px}
+#lsvg{width:100%;height:auto;display:block;touch-action:none;user-select:none}
+.lnode{cursor:grab;touch-action:none}
+.lmsg{margin:4px 10px 6px;min-height:1.3em;color:var(--muted);font-size:.84rem}
+.labside{display:flex;flex-direction:column;gap:12px;min-width:0}
+.labside .metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+.lgoals{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.lgoals li{display:grid;grid-template-columns:22px 1fr;gap:8px;font-size:.88rem}
+.lgoals small{display:block;color:var(--muted);font-size:.78rem;line-height:1.4;margin-top:2px}
+.lck{font:700 .95rem var(--f-mono);color:var(--muted)}
+.lgoals li.done .lck{color:var(--neon)}
+.lnote{color:var(--muted);font-size:.78rem;margin:10px 0 0}
+.lrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}
+.lrow .btn{min-height:38px;padding:6px 12px;font-size:.84rem;box-shadow:none}
+.lval{font:700 .86rem var(--f-mono)}
+.lchk{display:flex;gap:8px;align-items:center;font-size:.86rem}
+#linspect p{margin:0;font-size:.88rem}
+@media (max-width:1060px){.labgrid{grid-template-columns:1fr}.labside .metrics{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media (max-width:640px){.labcanvas{overflow-x:auto}#lsvg{min-width:760px}.labside .metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.ltraf input{width:110px}}
+
+/* ---- final polish ---- */
+html{scroll-behavior:smooth}
+::selection{background:rgba(47,232,196,.35);color:#fff}
+*{scrollbar-color:#1f4a50 transparent}
+::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:#1f4a50;border-radius:6px}::-webkit-scrollbar-track{background:transparent}
+:focus-visible{outline:2px solid var(--neon);outline-offset:2px;border-radius:8px}
+.bar{padding:10px 14px;border-radius:16px;background:linear-gradient(180deg,rgba(18,36,48,.7),rgba(9,19,27,.55));border:1px solid rgba(47,232,196,.16);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.panel,.stage,.steps,.card,.metrics .tile{transition:border-color .25s,box-shadow .25s}
+.panel:hover,.steps:hover{border-color:rgba(47,232,196,.38)}
+.stage{position:relative;overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.05)}
+.stage::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 40%,transparent 55%,rgba(2,8,12,.55) 100%)}
+.stagebar{position:relative;z-index:1}
+.tab{transition:border-color .2s,box-shadow .2s,background .2s,transform .2s}
+.tab:hover{transform:translateY(-1px)}
+.btn,.opt,.scard,.mstep{transition:border-color .2s,box-shadow .2s,transform .15s,background .2s}
+.btn:active:not(:disabled){transform:scale(.98)}
+.card h2{background:linear-gradient(90deg,#fff,#9ff3e3);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.steps li.cur .dot{box-shadow:0 0 14px var(--neon),0 0 0 3px rgba(47,232,196,.2)}
+.kpi .ring{animation:glowp 3.4s ease-in-out infinite}
+@keyframes glowp{0%,100%{box-shadow:0 0 12px rgba(47,232,196,.25)}50%{box-shadow:0 0 22px rgba(47,232,196,.55)}}
+.metrics .tile{background:linear-gradient(180deg,rgba(18,36,48,.9),rgba(9,19,27,.92))}
+body{background-image:radial-gradient(1100px 520px at 12% -8%,rgba(47,232,196,.10),transparent 60%),radial-gradient(900px 480px at 100% 0,rgba(53,183,255,.08),transparent 60%)}

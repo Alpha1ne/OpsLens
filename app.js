@@ -113,21 +113,42 @@ var PAL={
   green:['#a4f7cf','#33b67e','#21835c'],slab:['#0f202b','#0a1720','#07111a'],grey:['#7d8f9a','#5b6c77','#46555f'],
   purple:['#d2b0ff','#8d62d6','#65449e']
 };
-/* a 3D box: x,y,z = back corner on the floor grid, w,d,h = size */
+/* colour helpers and gradients */
+var GID=0;
+function hx(h){h=h.replace('#','');return [parseInt(h.substr(0,2),16),parseInt(h.substr(2,2),16),parseInt(h.substr(4,2),16)]}
+function mixc(h,f){var c=hx(h),t=f<0?0:255,k=Math.abs(f);return 'rgb('+c.map(function(v){return Math.round(v+(t-v)*k)}).join(',')+')'}
+function lg(c1,c2,x1,y1,x2,y2){var id='g'+(++GID);return ['<linearGradient id="'+id+'" x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'"><stop offset="0" stop-color="'+c1+'"/><stop offset="1" stop-color="'+c2+'"/></linearGradient>','url(#'+id+')']}
+function isoDefs(){return '<defs><filter id="bl3" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3"/></filter><filter id="bl7" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="7"/></filter><radialGradient id="fadeg"><stop offset="0" stop-color="#fff"/><stop offset=".7" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#000"/></radialGradient><mask id="fm" maskUnits="userSpaceOnUse" x="-100" y="-60" width="900" height="560"><rect x="-100" y="-60" width="900" height="560" fill="url(#fadeg)" transform="translate(0,0)"/></mask><radialGradient id="amb" cx=".5" cy=".55" r=".6"><stop offset="0" stop-color="#2fe8c4" stop-opacity=".16"/><stop offset="1" stop-color="#2fe8c4" stop-opacity="0"/></radialGradient></defs>'}
+/* faint isometric floor under the whole scene, with a soft ambient glow */
+function isoFloor(){
+  var g='<ellipse cx="'+IOX+'" cy="'+(IOY+170)+'" rx="330" ry="170" fill="url(#amb)"/><g mask="url(#fm)" stroke="#2fe8c4" stroke-opacity=".09" stroke-width="1" fill="none">',i,a,b;
+  for(i=-3;i<=17;i++){a=P(i,-3,0);b=P(i,17,0);g+='<path d="M'+a[0].toFixed(0)+','+a[1].toFixed(0)+' L'+b[0].toFixed(0)+','+b[1].toFixed(0)+'"/>';a=P(-3,i,0);b=P(17,i,0);g+='<path d="M'+a[0].toFixed(0)+','+a[1].toFixed(0)+' L'+b[0].toFixed(0)+','+b[1].toFixed(0)+'"/>'}
+  return g+'</g>';
+}
+function fpoly(x,y,w,d,z,dx,dy){return pts([P(x,y,z),P(x+w,y,z),P(x+w,y+d,z),P(x,y+d,z)].map(function(p){return [p[0]+dx,p[1]+dy]}))}
+/* a 3D box: x,y,z = back corner on the floor grid, w,d,h = size. Gradient faces, soft shadow, lit edges */
 function ibox(x,y,z,w,d,h,pal,o){
   o=o||{};
   var c=typeof pal==='string'?PAL[pal]:pal,st=o.stroke||'rgba(3,12,18,.85)',sw=o.sw||1;
   var t=[P(x,y,z+h),P(x+w,y,z+h),P(x+w,y+d,z+h),P(x,y+d,z+h)];
   var l=[P(x,y+d,z),P(x+w,y+d,z),P(x+w,y+d,z+h),P(x,y+d,z+h)];
   var r=[P(x+w,y,z),P(x+w,y+d,z),P(x+w,y+d,z+h),P(x+w,y,z+h)];
-  return '<g'+(o.op?' opacity="'+o.op+'"':'')+(o.glow?' style="filter:drop-shadow(0 0 7px '+o.glow+')"':'')+'>'+poly(l,c[1],st,sw)+poly(r,c[2],st,sw)+poly(t,c[0],st,sw)+'</g>';
+  var gl=lg(mixc(c[1],.12),mixc(c[1],-.32),0,0,0,1),gr=lg(mixc(c[2],.1),mixc(c[2],-.38),0,0,0,1),gt=lg(mixc(c[0],.16),mixc(c[0],-.08),0,0,1,1);
+  var sh=(o.noshadow||h<5)?'':'<polygon points="'+fpoly(x,y,w,d,z,h*0.45,h*0.18)+'" fill="#000" opacity=".42" filter="url(#bl3)"/>';
+  var hi='<path d="M'+t[3][0].toFixed(1)+','+t[3][1].toFixed(1)+' L'+t[2][0].toFixed(1)+','+t[2][1].toFixed(1)+' L'+t[1][0].toFixed(1)+','+t[1][1].toFixed(1)+'" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>';
+  var vh='<path d="M'+l[1][0].toFixed(1)+','+l[1][1].toFixed(1)+' L'+l[2][0].toFixed(1)+','+l[2][1].toFixed(1)+'" stroke="#fff" stroke-opacity=".22" stroke-width="1"/>';
+  return sh+'<g'+(o.op?' opacity="'+o.op+'"':'')+(o.glow?' style="filter:drop-shadow(0 0 8px '+o.glow+')"':'')+'>'+gl[0]+gr[0]+gt[0]+poly(l,gl[1],st,sw)+poly(r,gr[1],st,sw)+poly(t,gt[1],st,sw)+hi+vh+'</g>';
 }
 /* flat slab with a glowing rim: the "platform" every object stands on */
 function plat(x,y,w,d,tone,dashed){
   var col={ok:'#2fe8c4',run:'#35b7ff',bad:'#ff5f6d',idle:'#2a6670',wait:'#f2c744'}[tone||'idle'];
-  var t=[P(x,y,5),P(x+w,y,5),P(x+w,y+d,5),P(x,y+d,5)];
-  return ibox(x,y,0,w,d,5,'slab',{stroke:col,sw:1.4,glow:tone&&tone!=='idle'?col:null})+
-    '<polygon points="'+pts(t)+'" fill="none" stroke="'+col+'" stroke-width="1.1" stroke-opacity=".55"'+(dashed?' stroke-dasharray="5 4"':'')+'/>';
+  var t=[P(x,y,5),P(x+w,y,5),P(x+w,y+d,5),P(x,y+d,5)],act=tone&&tone!=='idle',i,gl='';
+  if(act)gl='<polygon points="'+fpoly(x-.15,y-.15,w+.3,d+.3,0,0,4)+'" fill="'+col+'" opacity=".30" filter="url(#bl7)"/>';
+  for(i=1;i<3;i++){var a=P(x+w*i/3,y,5),b=P(x+w*i/3,y+d,5),c=P(x,y+d*i/3,5),e=P(x+w,y+d*i/3,5);
+    gl+='<path d="M'+a[0].toFixed(1)+','+a[1].toFixed(1)+' L'+b[0].toFixed(1)+','+b[1].toFixed(1)+' M'+c[0].toFixed(1)+','+c[1].toFixed(1)+' L'+e[0].toFixed(1)+','+e[1].toFixed(1)+'" stroke="'+col+'" stroke-opacity=".16" stroke-width=".8" fill="none"/>'}
+  return gl+ibox(x,y,0,w,d,5,'slab',{stroke:col,sw:1.4,glow:act?col:null,noshadow:true})+
+    '<polygon points="'+pts(t)+'" fill="'+col+'" fill-opacity=".05" stroke="'+col+'" stroke-width="1.1" stroke-opacity=".6"'+(dashed?' stroke-dasharray="5 4"':'')+'/>'+
+    [0,1,2,3].map(function(k){var p=t[k],q=t[(k+1)%4],u=t[(k+3)%4],m=function(a,b){return [a[0]+(b[0]-a[0])*.16,a[1]+(b[1]-a[1])*.16]},A=m(p,q),B=m(p,u);return '<path d="M'+A[0].toFixed(1)+','+A[1].toFixed(1)+' L'+p[0].toFixed(1)+','+p[1].toFixed(1)+' L'+B[0].toFixed(1)+','+B[1].toFixed(1)+'" fill="none" stroke="'+col+'" stroke-width="1.8" stroke-linecap="round" stroke-opacity="'+(act?.95:.45)+'"/>'}).join('');
 }
 /* a floor ring, used for security groups and VPC edges */
 function ring(x,y,w,d,col,dash,z){
@@ -143,6 +164,7 @@ function rack(x,y,tone,o){
   o=o||{};
   var h=o.h||34,pal=tone==='dead'?'grey':'metal',g=ibox(x,y,5,1.4,1.4,h,pal,{glow:o.glow});
   var led=tone==='dead'?'c-bad':(tone==='hot'?'c-bad':(tone==='warm'?'c-slow':'c-res')),k;
+  var top=P(x+.7,y+.7,5+h+0);g+='<ellipse cx="'+top[0].toFixed(1)+'" cy="'+top[1].toFixed(1)+'" rx="7" ry="3" fill="#fff" opacity=".16"/>';
   for(k=0;k<3;k++){
     var z=8+k*10,a=P(x+1.4,y+0.2,z),b=P(x+1.4,y+1.2,z),c=P(x+1.4,y+1.2,z+6),d=P(x+1.4,y+0.2,z+6);
     g+=poly([a,b,c,d],'#0a1720','rgba(3,12,18,.7)',.8);
@@ -175,8 +197,9 @@ function Qflush(q){q.sort(function(a,b){return a.d-b.d});return q.map(function(o
 function xmark(x,y,z){var p=P(x,y,z);return '<path d="M'+(p[0]-8)+','+(p[1]-8)+' l16,16 m0,-16 l-16,16" class="cross"/>'}
 function G(sx,sy){var a=(sy-IOY)/IH,b=(sx-IOX)/IW;return [(a+b)/2,(a-b)/2]}
 function cyl(sx,sy,r,h,pal,glow){
-  var c=PAL[pal],rx=r,ry=r*0.5,st='rgba(3,12,18,.85)';
-  return '<g'+(glow?' style="filter:drop-shadow(0 0 7px '+glow+')"':'')+'><path d="M'+(sx-rx)+','+sy+' L'+(sx-rx)+','+(sy-h)+' A'+rx+','+ry+' 0 0 0 '+(sx+rx)+','+(sy-h)+' L'+(sx+rx)+','+sy+' A'+rx+','+ry+' 0 0 1 '+(sx-rx)+','+sy+'Z" fill="'+c[1]+'" stroke="'+st+'"/><ellipse cx="'+sx+'" cy="'+(sy-h)+'" rx="'+rx+'" ry="'+ry+'" fill="'+c[0]+'" stroke="'+st+'"/></g>';
+  var c=PAL[pal],rx=r,ry=r*0.5,st='rgba(3,12,18,.85)',id='g'+(++GID);
+  var gd='<linearGradient id="'+id+'" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="'+mixc(c[1],-.35)+'"/><stop offset=".35" stop-color="'+mixc(c[1],.22)+'"/><stop offset="1" stop-color="'+mixc(c[1],-.4)+'"/></linearGradient>';
+  return '<ellipse cx="'+(sx+h*0.3)+'" cy="'+(sy+3)+'" rx="'+(rx*1.05)+'" ry="'+(ry*1.05)+'" fill="#000" opacity=".4" filter="url(#bl3)"/><g'+(glow?' style="filter:drop-shadow(0 0 8px '+glow+')"':'')+'>'+gd+'<path d="M'+(sx-rx)+','+sy+' L'+(sx-rx)+','+(sy-h)+' A'+rx+','+ry+' 0 0 0 '+(sx+rx)+','+(sy-h)+' L'+(sx+rx)+','+sy+' A'+rx+','+ry+' 0 0 1 '+(sx-rx)+','+sy+'Z" fill="url(#'+id+')" stroke="'+st+'"/><ellipse cx="'+sx+'" cy="'+(sy-h)+'" rx="'+rx+'" ry="'+ry+'" fill="'+mixc(c[0],.08)+'" stroke="'+st+'"/><ellipse cx="'+sx+'" cy="'+(sy-h)+'" rx="'+(rx*.7)+'" ry="'+(ry*.7)+'" fill="none" stroke="#fff" stroke-opacity=".35"/></g>';
 }
 
 function drawScale(s){
@@ -200,8 +223,8 @@ function drawScale(s){
   if(lb){
     var lp=P(4.6,5.0,0);
     Qadd(q,4.4,3.3,plat(4.4,3.3,1.6,1.6,'run')+ibox(4.65,3.55,5,1.1,1.1,16,'blue',{glow:'rgba(53,183,255,.6)'})+bill('lb',5.2,4.1,22,40));
-    o+=T(lp[0],lp[1]+18,'load balancer','lbl xs','middle')+chip(lp[0]-30,lp[1]+36,'round robin');
-    if(m.failed)o+=chip(lp[0],lp[1]+74,'skipping server '+n,'c-bad');
+    o+=T(lp[0],lp[1]+18,'load balancer','lbl xs','middle')+chip(lp[0]-150,lp[1]+110,'round robin');
+    if(m.failed)o+=chip(lp[0]-150,lp[1]+146,'skipping server '+n,'c-bad');
   }
   for(i=0;i<n;i++){
     var y=i*2.1,down2=paths[i].down,u2=down2?0:share/60,over=u2>=1,tone=down2?'dead':(over?'hot':(u2>=0.7?'warm':'ok'));
@@ -1056,13 +1079,13 @@ function gameEnd(){
     '<div class="nav"><button class="btn run" type="button" id="gstart">Play again</button><button class="btn" type="button" data-lesson="kubernetes">Study Kubernetes</button><button class="btn" type="button" data-lesson="git">Back to lessons</button></div></div>';
 }
 function showGame(fromHash){
-  clearTimers();gameOn=true;
+  clearTimers();hideLab();gameOn=true;
   $('.app').classList.add('gm');
   renderStatic();
   if(!GS||GS.state==='done')gameHome();
   if(!fromHash){try{history.replaceState(null,'','#game')}catch(e){location.hash='game'}}
 }
-function hideGame(){if(!gameOn)return;gameOn=false;clearInterval(gtimer);GS=null;$('.app').classList.remove('gm')}
+function hideGame(){hideLab();if(!gameOn)return;gameOn=false;clearInterval(gtimer);GS=null;$('.app').classList.remove('gm')}
 
 
 /* ---------- order and grouping ---------- */
@@ -1079,7 +1102,7 @@ var lastVals={};
 function renderStage(anim){
   var sc=sceneNow();
   still=reduce||!anim;_pd=0;
-  $('#svg').innerHTML=cur.draw(sc);
+  GID=0;var _b=cur.draw(sc);$('#svg').innerHTML=isoDefs()+isoFloor()+_b;
   var ms=cur.metrics(sc);
   $('#metrics').innerHTML=ms.map(function(m){var key=cur.id+m[0],chg=lastVals[key]!==undefined&&lastVals[key]!==m[1];lastVals[key]=m[1];return '<div class="tile '+(m[2]==='n'?'':m[2])+(chg&&!reduce?' chg':'')+'"><div class="k">'+esc(m[0])+'</div><div class="v">'+esc(m[1])+'</div></div>'}).join('');
 }
@@ -1132,7 +1155,7 @@ function renderStatic(){
   LESSONS.forEach(function(L){if(!gmap[L.group]){gmap[L.group]=[];gorder.push(L.group)}gmap[L.group].push(L)});
   $('#lessons').innerHTML=gorder.map(function(g){
     return '<div class="grp"><span class="gl">'+esc(g)+'</span>'+gmap[g].map(function(L){return '<button class="tab" type="button" data-lesson="'+L.id+'"'+(L===cur&&!gameOn?' aria-current="true"':'')+'>'+icSvg(L.icon||'server',18)+esc(L.name)+'</button>'}).join('')+'</div>';
-  }).join('')+'<div class="grp"><span class="gl">Play</span><button class="tab" type="button" data-game="1"'+(gameOn?' aria-current="true"':'')+'>'+icSvg('firewall',18)+'Incident Room</button></div>';
+  }).join('')+'<div class="grp"><span class="gl">Play</span><button class="tab" type="button" data-game="1"'+(gameOn?' aria-current="true"':'')+'>'+icSvg('firewall',18)+'Incident Room</button><button class="tab" type="button" data-lab="1"'+(labOn?' aria-current="true"':'')+'>'+icSvg('gear',18)+'Build Lab</button></div>';
   $('#intro').textContent=cur.blurb;
   $('#partsList').innerHTML=(cur.parts||[]).map(function(p,k){return '<li style="animation-delay:'+(k*50)+'ms">'+icSvg(p[0],42,p[1])+'<div><b>'+esc(p[2])+'</b><span>'+esc(p[3])+'</span></div></li>'}).join('');
   $('#legend').innerHTML=cur.legend.map(function(l){return '<li><i class="'+l[0]+'"></i>'+esc(l[1])+'</li>'}).join('');
@@ -1168,6 +1191,7 @@ function pick(id,i,fromHash){
   return false;
 }
 function fromHash(){
+  if(location.hash==='#lab'){if(!cur)cur=LESSONS[0];showLab(true);return}
   if(location.hash==='#game'){if(!cur)cur=LESSONS[0];showGame(true);return}
   hideGame();
   var m=/^#([a-z0-9]+)-(\d+)$/.exec(location.hash||'');
@@ -1177,6 +1201,7 @@ function fromHash(){
 
 document.addEventListener('click',function(e){
   var t=e.target.closest?e.target.closest('button'):null;if(!t)return;
+  if(t.dataset.lab){showLab();return}
   if(t.dataset.game){showGame();return}
   if(t.dataset.gopt!=null){gameAnswer(parseInt(t.dataset.gopt,10));return}
   if(t.id==='gstart'){gameStart();return}
@@ -1204,7 +1229,7 @@ document.addEventListener('input',function(e){
 document.addEventListener('keydown',function(e){
   if(!$('#mdl').hidden)return;
   if(gameOn){if(GS&&GS.state==='q'&&/^[123]$/.test(e.key)){var ob=document.querySelectorAll('.opt')[+e.key-1];if(ob)ob.click()}return}
-  if(!$('#mdl').hidden)return;var tg=e.target&&e.target.tagName;if(tg==='INPUT'&&e.target.type==='range')return;
+  if(!$('#mdl').hidden)return;if(labOn)return;var tg=e.target&&e.target.tagName;if(tg==='INPUT'&&e.target.type==='range')return;
   if(e.key==='ArrowRight')go(idx+1);else if(e.key==='ArrowLeft')go(idx-1);
 });
 /* ---------- AWS service guides ---------- */
@@ -1249,16 +1274,17 @@ var SECT=[
  {id:'aws',kind:'aws',name:'AWS',tag:'Cloud',icon:'cloud'},
  {id:'scaling',kind:'lesson',lesson:'scaling',tag:'Architecture',icon:'lb'},
  {id:'pipeline',kind:'lesson',lesson:'pipeline',tag:'Delivery',icon:'rocket'},
- {id:'game',kind:'game',name:'Incident Room',tag:'Play',icon:'firewall'}
+ {id:'game',kind:'game',name:'Incident Room',tag:'Play',icon:'firewall'},
+ {id:'lab',kind:'lab',name:'Build Lab',tag:'Practice',icon:'gear'}
 ];
 function lessonById(id){for(var i=0;i<LESSONS.length;i++)if(LESSONS[i].id===id)return LESSONS[i];return null}
 function secName(s){return s.name||lessonById(s.lesson).name}
 var MS='overview',MSVC=null,mLast=null;
-function mCur(){if(gameOn)return 'game';return (cur&&(cur.id==='ec2'||cur.id==='s3'))?'aws':(cur?cur.id:'overview')}
+function mCur(){if(labOn)return 'lab';if(gameOn)return 'game';return (cur&&(cur.id==='ec2'||cur.id==='s3'))?'aws':(cur?cur.id:'overview')}
 function mOpen(){mLast=document.activeElement;MS=mCur();MSVC=null;$('#mdl').hidden=false;try{document.body.style.overflow='hidden'}catch(e){}mRender();$('#mclose').focus()}
 function mClose(){$('#mdl').hidden=true;try{document.body.style.overflow=''}catch(e){}if(mLast&&mLast.focus)mLast.focus()}
 function secProg(s){
-  if(s.kind==='game')return null;
+  if(s.kind==='game'||s.kind==='lab')return null;
   if(s.kind==='lesson'){var L=lessonById(s.lesson);return [(seen[L.id]||[]).length,L.steps.length]}
   var n=0,t=0;['ec2','s3'].forEach(function(id){var L=lessonById(id);n+=(seen[id]||[]).length;t+=L.steps.length});
   return [n+svcSeen.length,t+svcGuides().length];
@@ -1267,6 +1293,7 @@ function mCard(s){
   var pr=secProg(s),blurb,meta;
   if(s.kind==='lesson'){var L=lessonById(s.lesson);blurb=L.blurb;meta=L.steps.length+' steps'}
   else if(s.kind==='aws'){blurb='Hands-on EC2 and S3 lessons, plus short guides to '+svcGuides().length+' more AWS services.';meta='2 lessons · '+svcGuides().length+' guides'}
+  else if(s.kind==='lab'){blurb='Design your own infrastructure, send traffic through it and see what it costs and where it breaks.';meta='5 goals'}
   else{blurb='An on-call game. Read the alert, pick your first move and beat the clock.';meta='Best '+lsGet('best',0)}
   return '<button class="scard" type="button" data-mgo="'+s.id+'"><span class="sh"><span class="sico">'+icSvg(s.icon,30)+'</span><span><span class="st">'+esc(s.tag)+'</span><span class="sn">'+esc(secName(s))+'</span></span></span><span class="sp">'+esc(blurb)+'</span><span class="smeta"><span>'+esc(meta)+'</span><span>'+(pr?pr[0]+'/'+pr[1]:'Play')+' →</span></span>'+(pr?'<span class="pb"><i style="width:'+Math.round(pr[0]/pr[1]*100)+'%"></i></span>':'')+'</button>';
 }
@@ -1290,6 +1317,9 @@ function mRender(){
     var L=lessonById(s.lesson),sv=seen[L.id]||[];
     title=L.name;sub=L.blurb;
     body='<ol class="msteps">'+L.steps.map(function(st,k){return '<li><button class="mstep" type="button" data-mstep="'+L.id+':'+k+'"><span class="mnum'+(sv.indexOf(k)>-1?' ok':'')+'">'+(sv.indexOf(k)>-1?'✓':(k+1))+'</span><span class="mtx"><b>'+esc(st.label)+'</b><span>'+esc(st.title)+'</span></span><span class="chipTag">'+esc(st.tag)+'</span></button></li>'}).join('')+'</ol>';
+  }else if(s.kind==='lab'){
+    title='Build Lab';sub='Design your own infrastructure and test it.';
+    body='<div class="mgame"><p>Add blocks such as a CDN, load balancer, servers, cache and database. Link them, set the traffic level, and check your design against five goals.</p><button class="btn run" type="button" data-mlab="1">Open the Build Lab</button></div>';
   }else if(s.kind==='game'){
     title='Incident Room';sub='An on-call game. Read the alert, pick your first move and beat the clock.';
     body='<div class="mgame"><p>Best score <b>'+lsGet('best',0)+'</b> · Shifts played <b>'+lsGet('shifts',0)+'</b></p><button class="btn run" type="button" data-mgame="1">Open the Incident Room</button></div>';
@@ -1318,6 +1348,7 @@ document.addEventListener('click',function(e){
   if(t.dataset.mstep){var p=t.dataset.mstep.split(':');mClose();pick(p[0],parseInt(p[1],10));return}
   if(t.dataset.mlesson){mClose();pick(t.dataset.mlesson,0);return}
   if(t.dataset.mgame){mClose();showGame();return}
+  if(t.dataset.mlab){mClose();showLab();return}
 });
 document.addEventListener('keydown',function(e){
   if($('#mdl').hidden)return;
@@ -1329,6 +1360,225 @@ document.addEventListener('keydown',function(e){
     else if(!e.shiftKey&&document.activeElement===z){e.preventDefault();a.focus()}
   }
 },true);
+
+/* ---------- Build Lab: design your own infrastructure and test it ---------- */
+var labOn=false,LAB=null,labSel=null,labMode=false,labFrom=null,labDemand=300,labBuilt=false,labClr=0,labDrag=null;
+var LT={
+ users:{name:'Users',icon:'user',cost:0,hint:'People sending requests. Always present.'},
+ cdn:{name:'CDN',icon:'globe',cost:0.01,hint:'CloudFront. Serves about 60% of requests from cache.'},
+ fw:{name:'Firewall',icon:'firewall',cost:0,hint:'Security group or WAF. Only lets wanted traffic in.'},
+ lb:{name:'Load balancer',icon:'lb',cost:0.03,hint:'ALB. Spreads traffic over healthy servers, up to 1000 req/s.'},
+ server:{name:'Server',icon:'server',cost:0.04,hint:'EC2 or containers. Each instance handles 60 req/s.'},
+ cache:{name:'Cache',icon:'flask',cost:0.05,hint:'ElastiCache. Answers about 70% of reads, so the database sees 30%.'},
+ db:{name:'Database',icon:'db',cost:0.07,hint:'RDS. Handles 200 req/s. Multi-AZ adds a standby copy.'},
+ store:{name:'Storage',icon:'bucket',cost:0.01,hint:'S3. Holds static files such as images and scripts.'}
+};
+var LCOL={users:60,cdn:190,fw:320,lb:450,server:580,cache:710,db:830,store:710};
+function labStarter(){return {seq:3,nodes:[{id:'n1',t:'users',x:60,y:220},{id:'n2',t:'server',x:580,y:220,n:1}],links:[['n1','n2']]}}
+function labExample(){return {seq:10,nodes:[
+ {id:'n1',t:'users',x:60,y:220},{id:'n2',t:'cdn',x:190,y:220},{id:'n3',t:'fw',x:320,y:220},{id:'n4',t:'lb',x:450,y:220},
+ {id:'n5',t:'server',x:580,y:220,n:3},{id:'n6',t:'cache',x:710,y:150},{id:'n7',t:'db',x:830,y:220,ha:true},{id:'n8',t:'store',x:710,y:330}],
+ links:[['n1','n2'],['n2','n3'],['n2','n8'],['n3','n4'],['n4','n5'],['n5','n6'],['n6','n7'],['n5','n7']]}}
+function labLoad(){var d=lsGet('lab',null);if(d&&d.nodes&&d.links&&d.nodes.length)return d;return labStarter()}
+function labSave(){lsSet('lab',LAB)}
+function labNode(id){for(var i=0;i<LAB.nodes.length;i++)if(LAB.nodes[i].id===id)return LAB.nodes[i];return null}
+function labMsg(t){var m=$('#lmsg');if(m)m.textContent=t||''}
+function labAdd(t){
+  if(LAB.nodes.length>=14){labMsg('That is the maximum of 14 blocks.');return}
+  var x=LCOL[t],y=t==='store'?330:80,k,tries=0;
+  function busy(yy){return LAB.nodes.some(function(n){return Math.abs(n.x-x)<110&&Math.abs(n.y-yy)<80})}
+  while(busy(y)&&tries<8){y+=90;if(y>380)y=80;tries++}
+  var n={id:'n'+(++LAB.seq),t:t,x:x,y:y};if(t==='server')n.n=1;if(t==='db')n.ha=false;
+  LAB.nodes.push(n);labSel={k:'n',id:n.id};labMsg('Added '+LT[t].name+'. Click Link, then two blocks, to connect them.');labSave();labRender();
+}
+function labDel(){
+  if(!labSel)return;
+  if(labSel.k==='l'){LAB.links.splice(labSel.i,1)}
+  else{var n=labNode(labSel.id);if(!n||n.t==='users'){labMsg('The Users block stays.');return}
+    LAB.nodes=LAB.nodes.filter(function(x){return x.id!==n.id});LAB.links=LAB.links.filter(function(l){return l[0]!==n.id&&l[1]!==n.id})}
+  labSel=null;labSave();labRender();
+}
+function labTryLink(a,b){
+  if(a===b)return;var A=labNode(a),B=labNode(b);
+  if(B.t==='users'){labMsg('Nothing sends traffic into Users.');return}
+  if(LAB.links.some(function(l){return (l[0]===a&&l[1]===b)||(l[0]===b&&l[1]===a)})){labMsg('Those two are already linked.');return}
+  LAB.links.push([a,b]);labMsg('Linked '+LT[A.t].name+' to '+LT[B.t].name+'.');labSave();
+}
+/* the simplified traffic model */
+function labEval(D,chaos){
+  var N={},out={},i;
+  LAB.nodes.forEach(function(n){N[n.id]=n;out[n.id]=[]});
+  LAB.links.forEach(function(l){if(N[l[0]]&&N[l[1]])out[l[0]].push(l[1])});
+  function cnt(n){if(n.dead)return 0;var c=n.n||1;if(chaos===n.id)c-=1;return Math.max(0,c)}
+  function isUp(n){if(n.t==='server')return cnt(n)>0;if(n.dead)return false;if(chaos===n.id&&!(n.t==='db'&&n.ha))return false;return true}
+  function up(id){return isUp(N[id])}
+  var inF={},lk={},srv={},cdnAbs=0,dbLoad=0;
+  function fan(id,list,f,d){if(!list.length)return;var s=f/list.length;list.forEach(function(x){var k=id+'>'+x;lk[k]=(lk[k]||0)+s;push(x,s,d+1)})}
+  function push(id,f,d){
+    if(f<0.001||d>9)return;var n=N[id];inF[id]=(inF[id]||0)+f;if(!isUp(n))return;
+    var outs=out[id].filter(function(x){return N[x].t!=='store'}),al=outs.filter(up);
+    if(n.t==='fw')fan(id,al,f,d);
+    else if(n.t==='cdn'){cdnAbs+=f*0.6;fan(id,al,f*0.4,d)}
+    else if(n.t==='lb')fan(id,al,Math.min(f,1000),d);
+    else if(n.t==='cache')fan(id,al.filter(function(x){return N[x].t==='db'}),f*0.3,d);
+    else if(n.t==='db')dbLoad+=f;
+    else if(n.t==='server'){
+      var h=Math.min(f,60*cnt(n)),caches=al.filter(function(x){return N[x].t==='cache'}),dbs=al.filter(function(x){return N[x].t==='db'});
+      var allDb=outs.filter(function(x){return N[x].t==='db'}),allC=outs.filter(function(x){return N[x].t==='cache'});
+      var cdb=function(c){return out[c].filter(function(x){return N[x].t==='db'})};
+      var needs=allDb.length>0||allC.some(function(c){return cdb(c).length>0});
+      var has=dbs.length>0||caches.some(function(c){return cdb(c).some(up)});
+      srv[id]={h:h,needs:needs,ok:!needs||has};
+      if(srv[id].ok){if(caches.length)fan(id,caches,h,d);else if(dbs.length)fan(id,dbs,h,d)}
+    }
+  }
+  var U=null;LAB.nodes.forEach(function(n){if(n.t==='users')U=n});
+  if(U){var uo=out[U.id];if(uo.length){var s=D/uo.length;uo.forEach(function(x){lk[U.id+'>'+x]=(lk[U.id+'>'+x]||0)+s;push(x,s,1)})}}
+  var dbUp=LAB.nodes.filter(function(n){return n.t==='db'&&isUp(n)}).length,dbCap=200*dbUp,f=dbLoad>0?Math.min(1,dbCap/Math.max(dbLoad,0.001)):1;
+  var served=cdnAbs;
+  Object.keys(srv).forEach(function(id){var q=srv[id];if(q.ok)served+=q.h*(q.needs?f:1)});
+  served=Math.min(served,D);
+  return {D:D,served:served,pct:D>0?served/D:0,inF:inF,lk:lk,f:f,dbCap:dbCap,dbLoad:dbLoad,cnt:cnt,up:isUp,N:N,out:out};
+}
+function labCost(){
+  var c=0;LAB.nodes.forEach(function(n){var d=LT[n.t].cost;if(n.t==='server')c+=d*(n.n||1);else if(n.t==='db')c+=d*(n.ha?2:1);else c+=d});return c;
+}
+function labGoals(r){
+  var N=r.N,out=r.out,U=null,g=[],i;
+  LAB.nodes.forEach(function(n){if(n.t==='users')U=n});
+  /* 1 traffic */
+  g.push([r.pct>=0.95,'Handle the traffic','Serve at least 95% of '+r.D+' req/s. Now: '+Math.round(r.pct*100)+'%.','Add servers, put a load balancer in front, or add a CDN so fewer requests reach the servers.']);
+  /* 2 survive one failure */
+  var worst=1,wn=null;
+  LAB.nodes.forEach(function(n){if(n.t==='server'||n.t==='db'||n.t==='cache'){var q=labEval(r.D,n.id).pct;if(q<worst){worst=q;wn=n}}});
+  var ok2=r.pct>=0.95&&worst>=0.85&&LAB.nodes.some(function(n){return n.t==='server'});
+  var h2=!wn?(r.pct<0.95?'Fix the traffic goal first.':'Survives every single failure.'):'If the '+LT[wn.t].name.toLowerCase()+' fails, only '+Math.round(worst*100)+'% is served. '+(wn.t==='server'?'Add a second instance.':wn.t==='db'?'Turn on Multi-AZ.':'Link servers straight to the database as well, so they can bypass a failed cache.');
+  g.push([ok2,'Survive one failure','Lose any one server, cache or database and still serve 85% or more.',ok2?'Every single failure is covered.':h2]);
+  /* 3 front door */
+  var uo=U?out[U.id]:[],front=uo.length>0&&uo.every(function(x){var t=N[x].t;return t==='cdn'||t==='fw'||t==='lb'});
+  var seenF={},q=uo.slice(),fwr=false;while(q.length){var id=q.shift();if(seenF[id])continue;seenF[id]=1;if(N[id].t==='fw')fwr=true;out[id].forEach(function(x){q.push(x)})}
+  g.push([front&&fwr,'Protect the front door','Users reach only a CDN, firewall or load balancer, and a firewall sits on the path.',front?'Add a Firewall and link it on the path from Users.':'Do not link Users straight to servers or the database. Put a CDN, firewall or load balancer in front.']);
+  /* 4 cache */
+  var c4=LAB.nodes.some(function(n){return n.t==='cache'&&LAB.links.some(function(l){return l[1]===n.id&&N[l[0]].t==='server'})&&out[n.id].some(function(x){return N[x].t==='db'})});
+  g.push([c4,'Cache protects the database','A server links to a cache and the cache links to the database.','Add a Cache, link a Server to it, then link the Cache to the Database.']);
+  /* 5 static */
+  var c5=LAB.nodes.some(function(n){return n.t==='store'&&LAB.links.some(function(l){return l[1]===n.id&&(N[l[0]].t==='cdn'||N[l[0]].t==='server')})});
+  g.push([c5,'Static files off the servers','Storage is linked from a CDN or a server.','Add Storage, then link a CDN to it so images and scripts come from S3.']);
+  return g;
+}
+function labPath(a,b){
+  var sx=a.x+(b.x>=a.x?48:-48),ex=b.x+(b.x>=a.x?-48:48),dx=Math.max(30,Math.abs(ex-sx)/2)*(b.x>=a.x?1:-1);
+  return 'M'+sx+','+a.y+' C'+(sx+dx)+','+a.y+' '+(ex-dx)+','+b.y+' '+ex+','+b.y;
+}
+function labDraw(r){
+  var s='<defs><marker id="larr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#2fe8c4"/></marker></defs>';
+  s+='<rect x="0" y="0" width="900" height="440" fill="none" data-lbg="1"/>';
+  LAB.links.forEach(function(l,i){
+    var a=labNode(l[0]),b=labNode(l[1]);if(!a||!b)return;
+    var d=labPath(a,b),f=r.lk[l[0]+'>'+l[1]]||0,dead=!r.up(r.N[l[1]]),sel=labSel&&labSel.k==='l'&&labSel.i===i;
+    s+='<path d="'+d+'" fill="none" stroke="'+(sel?'#f2c744':(dead?'#ff5f6d':'#2fe8c4'))+'" stroke-opacity="'+(f>0||sel?.85:.35)+'" stroke-width="'+(sel?3.4:1.4+Math.min(3,f/150))+'"'+(dead?' stroke-dasharray="5 5"':'')+' marker-end="url(#larr)"/>';
+    var np=Math.min(3,Math.ceil(f/90));for(var k=0;k<np;k++)s+=packet(d,2.4,k*(2.4/np),'req');
+    s+='<path d="'+d+'" fill="none" stroke="transparent" stroke-width="16" data-llink="'+i+'" style="cursor:pointer"/>';
+  });
+  LAB.nodes.forEach(function(n){
+    var T0=LT[n.t],up=r.up(n),inn=r.inF[n.id]||0,util=0,sub='';
+    if(n.t==='server'){var c=r.cnt(n);util=c?inn/(60*c):(inn>0?2:0);sub='×'+(n.n||1)+(c?' · '+Math.round(Math.min(util,9.99)*100)+'%':' · down')}
+    else if(n.t==='lb'){util=inn/1000;sub=Math.round(inn)+' req/s'}
+    else if(n.t==='db'){util=r.dbCap?r.dbLoad/r.dbCap:0;sub=(n.ha?'HA · ':'')+Math.round(r.dbLoad)+' req/s'}
+    else if(n.t==='users'){sub=r.D+' req/s'}
+    else if(n.t==='cdn'){sub=Math.round(inn)+' in'}
+    else sub=Math.round(inn)+' in';
+    var col=!up?'#ff5f6d':(util>=1?'#ff5f6d':(util>0.8?'#ffa24a':'#2fe8c4')),sel=labSel&&labSel.k==='n'&&labSel.id===n.id,pick=labFrom===n.id;
+    s+='<g class="lnode" data-lnode="'+n.id+'" transform="translate('+(n.x-48)+','+(n.y-36)+')"><rect width="96" height="72" rx="12" fill="rgba(8,18,26,.94)" stroke="'+(pick?'#f2c744':col)+'" stroke-width="'+(sel||pick?2.6:1.4)+'"'+(sel?' stroke-dasharray="6 4"':'')+' style="filter:drop-shadow(0 0 6px '+col+'55)"/>'+
+      ic(n.t==='users'?'user':T0.icon,34,4,28,{})+T(48,46,T0.name,'lbl xs','middle')+T(48,62,sub,'lbl sm','middle')+
+      (up?'':'<path d="M32,12 l32,32 m0,-32 l-32,32" class="cross"/>')+'</g>';
+  });
+  return s;
+}
+function labRender(){
+  if(!labBuilt)return;
+  var r=labEval(labDemand,null),gl=labGoals(r),met=gl.filter(function(x){return x[0]}).length,cost=labCost();
+  $('#lsvg').innerHTML=labDraw(r);
+  $('#lmetrics').innerHTML='<div class="tile"><div class="k">Traffic</div><div class="v">'+labDemand+' req/s</div></div><div class="tile '+(r.pct>=0.95?'ok':(r.pct>=0.6?'warn':'bad'))+'"><div class="k">Served</div><div class="v">'+Math.round(r.pct*100)+'%</div></div><div class="tile"><div class="k">Cost (est.)</div><div class="v">$'+cost.toFixed(2)+'/hr</div></div><div class="tile '+(met===5?'ok':'')+'"><div class="k">Goals</div><div class="v">'+met+' / 5</div></div>';
+  $('#lgoals').innerHTML='<h3 class="ph">Goals <small>'+met+' of 5 met</small></h3><ul class="lgoals">'+gl.map(function(g){return '<li class="'+(g[0]?'done':'')+'"><span class="lck">'+(g[0]?'✓':'○')+'</span><span><b>'+esc(g[1])+'</b><small>'+esc(g[0]?g[2]:g[3])+'</small></span></li>'}).join('')+'</ul><p class="lnote">Cost is an illustrative estimate (about $'+(cost*730).toFixed(0)+' a month). Real AWS prices differ by region, so check the pricing page. This is a simplified model for practice.</p>';
+  var ins='<h3 class="ph">Selected block</h3>';
+  if(labSel&&labSel.k==='l'){ins+='<p>A link is selected.</p><div class="lrow"><button class="btn" type="button" data-ldel="1">Delete link</button></div>'}
+  else if(labSel&&labNode(labSel.id)){
+    var n=labNode(labSel.id),T0=LT[n.t];
+    ins+='<p><b>'+esc(T0.name)+'</b><br>'+esc(T0.hint)+'</p><div class="lrow">';
+    if(n.t==='server')ins+='<button class="btn" type="button" data-lstep="-1" aria-label="Fewer instances">−</button><span class="lval">'+(n.n||1)+' instance'+((n.n||1)>1?'s':'')+'</span><button class="btn" type="button" data-lstep="1" aria-label="More instances">+</button>';
+    if(n.t==='db')ins+='<label class="lchk"><input type="checkbox" id="lha"'+(n.ha?' checked':'')+'> Multi-AZ standby</label>';
+    if(n.t!=='users'){ins+='<button class="btn" type="button" data-lkill="1">'+(n.dead?'Bring it back':'Simulate failure')+'</button><button class="btn" type="button" data-ldel="1">Delete</button>'}
+    ins+='</div>';
+  }else ins+='<p class="lnote">Click a block to edit it. Drag blocks to move them.</p>';
+  $('#linspect').innerHTML=ins;
+  var mb=$('#lmode');if(mb){mb.setAttribute('aria-pressed',labMode?'true':'false');mb.textContent=labMode?(labFrom?'Now click the target block':'Click the first block'):'Link blocks'}
+}
+function labBuild(){
+  labBuilt=true;
+  $('#lab').innerHTML='<div class="labhead"><h2>Build Lab</h2><p>Design your own infrastructure. Add blocks, link them, then send traffic through the design and see what it can handle, what it costs and where it breaks.</p></div>'+
+   '<div class="labbar"><div class="lpal" role="group" aria-label="Add a block">'+['cdn','fw','lb','server','cache','db','store'].map(function(t){return '<button class="btn lpb" type="button" data-ladd="'+t+'" title="'+esc(LT[t].hint)+'">'+icSvg(LT[t].icon,20)+esc(LT[t].name)+'</button>'}).join('')+'</div>'+
+   '<div class="lpal"><button class="btn run" type="button" id="lmode" aria-pressed="false">Link blocks</button>'+
+   '<label class="ltraf">Traffic <input type="range" id="lDemand" min="50" max="1000" step="50" value="'+labDemand+'"><output id="lDemandV">'+labDemand+' req/s</output></label></div></div>'+
+   '<div class="labgrid"><div class="labcanvas"><svg id="lsvg" viewBox="0 0 900 440" role="img" aria-label="Your infrastructure design"></svg><p class="lmsg" id="lmsg" aria-live="polite"></p></div>'+
+   '<div class="labside"><div class="metrics" id="lmetrics"></div><section class="panel" id="lgoals"></section><section class="panel" id="linspect"></section>'+
+   '<div class="lrow"><button class="btn" type="button" data-lex="example">Load a solved example</button><button class="btn" type="button" data-lex="start">Start over</button></div></div></div>';
+}
+function showLab(fromH){
+  clearTimers();hideGame();labOn=true;$('.app').classList.add('lb');
+  if(!LAB)LAB=labLoad();if(!labBuilt)labBuild();
+  renderStatic();labRender();
+  if(!fromH){try{history.replaceState(null,'','#lab')}catch(e){location.hash='lab'}}
+  try{window.scrollTo(0,0)}catch(e){}
+}
+function hideLab(){if(!labOn)return;labOn=false;labMode=false;labFrom=null;$('.app').classList.remove('lb')}
+function labPt(e){var sv=$('#lsvg'),m=sv.getScreenCTM();if(!m)return [0,0];var p=sv.createSVGPoint();p.x=e.clientX;p.y=e.clientY;p=p.matrixTransform(m.inverse());return [p.x,p.y]}
+document.addEventListener('pointerdown',function(e){
+  if(!labOn||!e.target.closest)return;
+  var g=e.target.closest('[data-lnode]');
+  if(g){var n=labNode(g.getAttribute('data-lnode')),p=labPt(e);labDrag={id:n.id,dx:n.x-p[0],dy:n.y-p[1],sx:e.clientX,sy:e.clientY,moved:false};e.preventDefault();return}
+  var lk=e.target.closest('[data-llink]');
+  if(lk){labSel={k:'l',i:parseInt(lk.getAttribute('data-llink'),10)};labFrom=null;labRender();return}
+  if(e.target.closest('#lsvg')){labSel=null;if(labMode)labFrom=null;labRender()}
+});
+document.addEventListener('pointermove',function(e){
+  if(!labDrag)return;
+  if(!labDrag.moved&&Math.abs(e.clientX-labDrag.sx)+Math.abs(e.clientY-labDrag.sy)<6)return;
+  labDrag.moved=true;var n=labNode(labDrag.id),p=labPt(e);
+  n.x=Math.max(56,Math.min(844,Math.round(p[0]+labDrag.dx)));n.y=Math.max(42,Math.min(398,Math.round(p[1]+labDrag.dy)));labRender();
+});
+document.addEventListener('pointerup',function(){
+  if(!labDrag)return;var d=labDrag;labDrag=null;
+  if(d.moved){labSave();return}
+  if(labMode){
+    if(!labFrom){labFrom=d.id;labSel={k:'n',id:d.id}}
+    else{labTryLink(labFrom,d.id);labFrom=null;labSel={k:'n',id:d.id}}
+  }else labSel={k:'n',id:d.id};
+  labRender();
+});
+document.addEventListener('click',function(e){
+  if(!labOn)return;var t=e.target.closest?e.target.closest('button'):null;if(!t)return;
+  if(t.dataset.ladd){labAdd(t.dataset.ladd);return}
+  if(t.id==='lmode'){labMode=!labMode;labFrom=null;labMsg(labMode?'Link mode on. Click a source block, then the block it sends traffic to.':'');labRender();return}
+  if(t.dataset.ldel){labDel();return}
+  if(t.dataset.lkill){var n=labNode(labSel.id);if(n){n.dead=!n.dead;labSave();labRender()}return}
+  if(t.dataset.lstep){var n2=labNode(labSel.id);if(n2){n2.n=Math.max(1,Math.min(6,(n2.n||1)+parseInt(t.dataset.lstep,10)));labSave();labRender()}return}
+  if(t.dataset.lex==='example'){LAB=labExample();labSel=null;labDemand=300;$('#lDemand').value=300;$('#lDemandV').textContent='300 req/s';labSave();labMsg('Loaded a design that meets all five goals. Try breaking it.');labRender();return}
+  if(t.dataset.lex==='start'){
+    if(labClr){LAB=labStarter();labSel=null;labClr=0;labSave();labMsg('Back to one server.');t.textContent='Start over';labRender()}
+    else{labClr=1;t.textContent='Click again to confirm';setTimeout(function(){labClr=0;t.textContent='Start over'},3000)}
+    return;
+  }
+});
+document.addEventListener('input',function(e){
+  if(!labOn)return;var t=e.target;
+  if(t.id==='lDemand'){labDemand=parseInt(t.value,10);$('#lDemandV').textContent=labDemand+' req/s';labRender()}
+  else if(t.id==='lha'){var n=labNode(labSel.id);if(n){n.ha=t.checked;labSave();labRender()}}
+});
+document.addEventListener('keydown',function(e){
+  if(!labOn)return;var tg=e.target&&e.target.tagName;if(tg==='INPUT'||tg==='BUTTON')return;
+  if(e.key==='Delete'||e.key==='Backspace'){labDel();e.preventDefault()}
+});
 
 window.addEventListener('hashchange',fromHash);
 fromHash();
