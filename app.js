@@ -118,7 +118,7 @@ var GID=0;
 function hx(h){h=h.replace('#','');return [parseInt(h.substr(0,2),16),parseInt(h.substr(2,2),16),parseInt(h.substr(4,2),16)]}
 function mixc(h,f){var c=hx(h),t=f<0?0:255,k=Math.abs(f);return 'rgb('+c.map(function(v){return Math.round(v+(t-v)*k)}).join(',')+')'}
 function lg(c1,c2,x1,y1,x2,y2){var id='g'+(++GID);return ['<linearGradient id="'+id+'" x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'"><stop offset="0" stop-color="'+c1+'"/><stop offset="1" stop-color="'+c2+'"/></linearGradient>','url(#'+id+')']}
-function isoDefs(){return '<defs><filter id="bl3" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3"/></filter><filter id="bl7" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="7"/></filter><radialGradient id="fadeg"><stop offset="0" stop-color="#fff"/><stop offset=".7" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#000"/></radialGradient><mask id="fm" maskUnits="userSpaceOnUse" x="-100" y="-60" width="900" height="560"><rect x="-100" y="-60" width="900" height="560" fill="url(#fadeg)" transform="translate(0,0)"/></mask><radialGradient id="amb" cx=".5" cy=".55" r=".6"><stop offset="0" stop-color="#2fe8c4" stop-opacity=".16"/><stop offset="1" stop-color="#2fe8c4" stop-opacity="0"/></radialGradient></defs>'}
+function isoDefs(){return '<defs><filter id="bl3" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3"/></filter><filter id="bl7" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="9"/></filter><radialGradient id="fadeg"><stop offset="0" stop-color="#fff"/><stop offset=".7" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#000"/></radialGradient><mask id="fm" maskUnits="userSpaceOnUse" x="-100" y="-60" width="900" height="560"><rect x="-100" y="-60" width="900" height="560" fill="url(#fadeg)" transform="translate(0,0)"/></mask><radialGradient id="amb" cx=".5" cy=".55" r=".6"><stop offset="0" stop-color="#2fe8c4" stop-opacity=".16"/><stop offset="1" stop-color="#2fe8c4" stop-opacity="0"/></radialGradient></defs>'}
 /* faint isometric floor under the whole scene, with a soft ambient glow */
 function isoFloor(){
   var g='<ellipse cx="'+IOX+'" cy="'+(IOY+170)+'" rx="330" ry="170" fill="url(#amb)"/><g mask="url(#fm)" stroke="#2fe8c4" stroke-opacity=".09" stroke-width="1" fill="none">',i,a,b;
@@ -143,7 +143,7 @@ function ibox(x,y,z,w,d,h,pal,o){
 function plat(x,y,w,d,tone,dashed){
   var col={ok:'#2fe8c4',run:'#35b7ff',bad:'#ff5f6d',idle:'#2a6670',wait:'#f2c744'}[tone||'idle'];
   var t=[P(x,y,5),P(x+w,y,5),P(x+w,y+d,5),P(x,y+d,5)],act=tone&&tone!=='idle',i,gl='';
-  if(act)gl='<polygon points="'+fpoly(x-.15,y-.15,w+.3,d+.3,0,0,4)+'" fill="'+col+'" opacity=".30" filter="url(#bl7)"/>';
+  if(act)gl='<polygon points="'+fpoly(x-.15,y-.15,w+.3,d+.3,0,0,4)+'" fill="'+col+'" opacity=".16" filter="url(#bl7)"/>';
   for(i=1;i<3;i++){var a=P(x+w*i/3,y,5),b=P(x+w*i/3,y+d,5),c=P(x,y+d*i/3,5),e=P(x+w,y+d*i/3,5);
     gl+='<path d="M'+a[0].toFixed(1)+','+a[1].toFixed(1)+' L'+b[0].toFixed(1)+','+b[1].toFixed(1)+' M'+c[0].toFixed(1)+','+c[1].toFixed(1)+' L'+e[0].toFixed(1)+','+e[1].toFixed(1)+'" stroke="'+col+'" stroke-opacity=".16" stroke-width=".8" fill="none"/>'}
   return gl+ibox(x,y,0,w,d,5,'slab',{stroke:col,sw:1.4,glow:act?col:null,noshadow:true})+
@@ -1085,7 +1085,7 @@ function showGame(fromHash){
   if(!GS||GS.state==='done')gameHome();
   if(!fromHash){try{history.replaceState(null,'','#game')}catch(e){location.hash='game'}}
 }
-function hideGame(){hideLab();if(!gameOn)return;gameOn=false;clearInterval(gtimer);GS=null;$('.app').classList.remove('gm')}
+function hideGame(){hideHome();hideLab();if(!gameOn)return;gameOn=false;clearInterval(gtimer);GS=null;$('.app').classList.remove('gm')}
 
 
 /* ---------- order and grouping ---------- */
@@ -1184,6 +1184,7 @@ function fitStage(){
   var wr=sv.parentNode;if(wr&&wr.scrollWidth>wr.clientWidth)wr.scrollLeft=(wr.scrollWidth-wr.clientWidth)/2;
 }
 function renderStatic(){
+  var _r=lsGet('resume',null),_cb=$('#contBtn');if(_cb){if(_r&&lessonById(_r.id)&&!hmOn){_cb.hidden=false;_cb.textContent='Continue: '+lessonById(_r.id).name}else _cb.hidden=true}
   renderNav2();
   renderTitle();
   $('#partsList').innerHTML=(cur.parts||[]).map(function(p,k){return '<li style="animation-delay:'+(k*50)+'ms">'+icSvg(p[0],42,p[1])+'<div><b>'+esc(p[2])+'</b><span>'+esc(p[3])+'</span></div></li>'}).join('');
@@ -1195,9 +1196,10 @@ function renderStatic(){
   }).join('');
 }
 function renderCard(){
+  if(qzOn&&QZ){renderQuizCard();return}
   var st=cur.steps[idx],last=idx===cur.steps.length-1;
   var li=LESSONS.indexOf(cur),nextL=LESSONS[li+1];
-  var nextLabel=last?(nextL?'Next lesson: '+nextL.name:'Back to the first lesson'):'Next: '+cur.steps[idx+1].label;
+  var nextLabel=last?'Take the quick check':'Next: '+cur.steps[idx+1].label;
   $('#card').innerHTML=
     '<div class="top"><span>STEP '+(idx+1)+' / '+cur.steps.length+'</span><span class="chipTag">'+esc(st.tag)+'</span></div>'+
     '<h2>'+esc(st.title)+'</h2><p>'+esc(st.text)+'</p>'+
@@ -1206,10 +1208,10 @@ function renderCard(){
     '<div class="nav"><button class="btn" type="button" id="back"'+(idx===0?' disabled':'')+'>← Back</button><button class="btn go" type="button" id="next"><span>'+esc(nextLabel)+'</span><span aria-hidden="true">→</span></button></div>';
 }
 function go(i,fromHash){
-  clearTimers();
+  clearTimers();hideHome();qzOn=false;
   idx=clamp(i,0,cur.steps.length-1);
   var sv=seen[cur.id]||(seen[cur.id]=[]);if(sv.indexOf(idx)<0){sv.push(idx);lsSet('seen',seen)}
-  logAct();
+  logAct();lsSet('resume',{id:cur.id,idx:idx});
   if(cur.steps[idx].pg){var p=getPG(cur);if(cur.id==='pipeline'){p.running=false}}
   renderStatic();renderStage(true);renderCard();
   if(!fromHash){try{history.replaceState(null,'','#'+cur.id+'-'+(idx+1))}catch(e){location.hash=cur.id+'-'+(idx+1)}}
@@ -1223,10 +1225,11 @@ function fromHash(){
   if(location.hash==='#gitlab'){if(!cur)cur=LESSONS[0];showGP(true);return}
   if(location.hash==='#lab'){if(!cur)cur=LESSONS[0];showLab(true);return}
   if(location.hash==='#game'){if(!cur)cur=LESSONS[0];showGame(true);return}
+  if(location.hash==='#home'||!location.hash||location.hash==='#'){showHome(true);return}
   hideGame();
   var m=/^#([a-z0-9]+)-(\d+)$/.exec(location.hash||'');
   if(m&&pick(m[1],parseInt(m[2],10)-1,true))return;
-  cur=LESSONS[0];go(0,true);
+  showHome(true);
 }
 
 document.addEventListener('click',function(e){
@@ -1242,7 +1245,7 @@ document.addEventListener('click',function(e){
   if(t.id==='back'){go(idx-1);return}
   if(t.id==='next'){
     if(idx<cur.steps.length-1)go(idx+1);
-    else{var li=LESSONS.indexOf(cur);cur=LESSONS[(li+1)%LESSONS.length];go(0)}
+    else startQuiz();
     return;
   }
   if(t.id==='replay'){renderStage(true);return}
@@ -1949,6 +1952,134 @@ document.addEventListener('keydown',function(e){
   else if(e.key==='ArrowUp'){if(gpHi>0)gpHi--;i.value=gpHist[gpHi]||'';e.preventDefault()}
   else if(e.key==='ArrowDown'){if(gpHi<gpHist.length)gpHi++;i.value=gpHist[gpHi]||'';e.preventDefault()}
 });
+
+function nav(h){if(location.hash===h)fromHash();else location.hash=h}
+/* ---------- landing page, quick checks, completion, notes, tour ---------- */
+var hmOn=false;(function(){var t=lsGet("theme",null);if(t)document.documentElement.setAttribute("data-theme",t)})();var qzOn=false,QZ=null,tourI=0;
+var QUIZ={
+git:[["Where does git add put your changes?",["Working directory","Staging area","Remote repository","Stash"],1,"git add copies the chosen changes into the staging area, ready for the next commit."],["Which command shares your local commits with the remote?",["git commit","git push","git add","git merge"],1,"git push uploads your local commits to the remote, for example GitHub."],["You pushed a bad commit. What is the safest way to undo it without rewriting shared history?",["git reset --hard","git revert","Delete the .git folder","git stash"],1,"git revert adds a new commit that undoes the old one, so history that others have stays intact."]],
+docker:[["Why does a Dockerfile copy package.json before the rest of the source code?",["So the dependency layer stays cached when only code changes","Because Docker needs files in alphabetical order","To make the image half the size","To skip the build step"],0,"Layers are cached top to bottom. Dependencies change rarely, so putting them first lets Docker reuse them."],["What is the difference between an image and a container?",["An image runs, a container is a file","An image is a read-only template, a container is a running instance of it","They are the same thing","A container is stored in a registry, an image is not"],1,"You build an image once and can start many containers from it."],["Data written inside a container is lost when the container is removed. How do you keep it?",["Use a volume","Use a bigger image","Run it as root","Add more layers"],0,"A volume lives outside the container, so the data survives restarts and removal."]],
+kubernetes:[["You ask for 3 replicas and one pod crashes. What does Kubernetes do?",["Waits for you to fix it","Starts a replacement pod to get back to 3","Deletes the Deployment","Stops the other two pods"],1,"Kubernetes keeps comparing desired state with reality and fixes the difference."],["Which part compares the desired state with the actual state?",["The control plane","The container registry","A volume","The image"],0,"Controllers in the control plane run this loop all the time."],["Why spread replicas across different nodes?",["One failed machine does not take the whole app down","To use more disk space","To make each pod faster","So you do not need a load balancer"],0,"If every replica is on one node, losing that node loses the app."]],
+ec2:[["A security group is best described as...",["A virtual firewall around the instance listing allowed traffic","A backup of the instance","A type of disk","A pricing plan"],0,"By default all inbound traffic is denied. You add rules for what is allowed."],["You need SSH access from home. Which rule is safest?",["Port 22 from 0.0.0.0/0","Port 22 only from your own IP","Open all ports","Turn the firewall off"],1,"Limit SSH to the smallest source that needs it."],["Which pricing option suits a steady workload that runs all year?",["On-Demand only","Savings Plans or Reserved capacity","Spot for a database","The free tier"],1,"Committing to steady use gives a discount. Spot can be interrupted, so it suits flexible jobs."]],
+s3:[["Which setting makes sure a bucket cannot be made public by mistake?",["Block Public Access","Versioning","A lifecycle rule","A storage class"],0,"Block Public Access overrides bucket and object permissions that would expose data."],["How should an app on EC2 get access to a bucket?",["Hard-code access keys in the code","Attach an IAM role to the instance","Make the bucket public","Email the keys to the team"],1,"Roles give temporary credentials, so there are no long-lived keys to leak."],["What does versioning protect you from?",["Accidental overwrites and deletes","Network outages","High bills","Slow downloads"],0,"Old versions are kept, so you can restore an object that was changed or deleted."]],
+scaling:[["What does a load balancer do?",["Spreads requests across healthy servers","Stores the database","Compiles code","Encrypts disks"],0,"It is the front door that shares traffic out and skips unhealthy servers."],["Horizontal scaling means...",["Adding more servers","Making one server bigger","Clearing caches","Moving to another region"],0,"Vertical scaling makes one machine bigger. Horizontal adds more machines."],["One of three servers fails its health check. The load balancer...",["Stops sending it traffic","Sends it all the traffic","Shuts down the others","Reboots the users"],0,"Health checks let it route around failures so users do not notice."]],
+pipeline:[["A test fails in the pipeline. What should happen?",["The pipeline stops and nothing is deployed","It deploys anyway","It deletes the repository","It skips tests next time"],0,"A failed stage is a gate. Bad code must not move on."],["What is a canary release?",["Send a small share of traffic to the new version first","Deploy to every user at once","Deploy only at night","Roll back every release"],0,"If the canary looks healthy, the rollout continues. If not, you roll back with little impact."],["Why run CI on every commit?",["Catch problems early while the change is small","To use more servers","To avoid code review","To make builds slower"],0,"Small changes are easy to understand and fix."]]
+};
+function lessonDone(){return lsGet('done',{})}
+/* ----- landing ----- */
+function heroArt(){
+  var s,q,saveY=IOY;IOY=58;q=Qnew();
+  Qadd(q,0,0,plat(0,0,3,3,'ok')+rack(0.8,0.8,'ok',{h:40}));
+  Qadd(q,5,0,plat(5,0,3,3,'run')+rack(5.8,0.8,'ok',{h:40}));
+  Qadd(q,2.6,4,plat(2.6,4,3,3,'ok')+ibox(3.4,4.8,5,1.4,1.4,26,'blue',{glow:'#35b7ff'}));
+  var p1=[[1.5,3],[1.5,5.5],[2.6,5.5]],p2=[[6.5,3],[6.5,5.5],[5.6,5.5]];
+  s=isoDefs()+isoFloor()+pipe(p1,'flow')+pipe(p2,'flow')+Qflush(q);
+  [0,1.3].forEach(function(b){s+=packet(pipeD(p1),2.6,b,'req')+packet(pipeD(p2),2.6,b+.6,'res')});
+  IOY=saveY;
+  return '<svg viewBox="100 10 440 270" role="img" aria-label="Illustration: servers behind a load balancer">'+s+'</svg>';
+}
+function secCard(at,icon,tag,name,blurb,meta,pr){
+  return '<button class="scard" type="button" '+at+'><span class="sh"><span class="sico">'+icSvg(icon,30)+'</span><span><span class="st">'+esc(tag)+'</span><span class="sn">'+esc(name)+'</span></span></span><span class="sp">'+esc(blurb)+'</span><span class="smeta"><span>'+esc(meta)+'</span><span>'+(pr?pr[0]+'/'+pr[1]+' →':'Open →')+'</span></span>'+(pr?'<span class="pb"><i style="width:'+Math.round(pr[0]/pr[1]*100)+'%"></i></span>':'')+'</button>';
+}
+function renderHome(){
+  var rs=lsGet('resume',null),rl=rs&&lessonById(rs.id),dn=lessonDone(),tot=0;LESSONS.forEach(function(L){tot+=L.steps.length});
+  var cta=rl?'<button class="btn go" type="button" data-resume="1"><span>Continue: '+esc(rl.name)+' · step '+(rs.idx+1)+'</span><span aria-hidden="true">→</span></button>':'<button class="btn go" type="button" data-lesson="git"><span>Start learning</span><span aria-hidden="true">→</span></button>';
+  var learn=SECT.filter(function(s){return s.kind==='lesson'||s.kind==='aws'}).map(function(s){
+    var pr=secProg(s),blurb,meta,at;
+    if(s.kind==='lesson'){var L=lessonById(s.lesson);blurb=L.blurb;meta=L.steps.length+' steps'+(dn[L.id]!=null?' · quiz '+dn[L.id]+'/3':'');at='data-lesson="'+s.lesson+'"'}
+    else{blurb='Hands-on EC2 and S3 lessons, plus guides to '+svcGuides().length+' more services such as Lambda, EKS and DynamoDB.';meta='2 lessons · '+svcGuides().length+' guides';at='data-maws="1"'}
+    return secCard(at,s.icon,s.tag,secName(s),blurb,meta,pr);
+  }).join('');
+  var prac=[secCard('data-game="1"','firewall','Play','Incident Room','An on-call game. Read the alert, pick your first move and beat the clock.','Best '+lsGet('best',0),null),
+    secCard('data-lab="1"','gear','Practice','Build Lab','Design your own infrastructure, send traffic through it and see what it costs.','5 goals',null),
+    secCard('data-gp="1"','commit','Practice','Git Practice','A safe practice repo. Type real git commands and watch the commit graph change.','6 missions',null)].join('');
+  $('#home').innerHTML='<div class="hero"><div class="hero-l"><span class="eyebrow">Interactive DevOps study lab</span><h1>Learn DevOps by watching it work</h1><p>Animated 3D diagrams, hands-on labs and short quizzes for Git, Docker, Kubernetes and AWS. Free, in your browser, no sign-up.</p><div class="hero-cta">'+cta+'<button class="btn" type="button" data-tour="1">Take the tour</button></div>'+
+    '<ul class="hero-stats"><li><b>'+LESSONS.length+'</b> lessons</li><li><b>'+tot+'</b> steps</li><li><b>'+svcGuides().length+'</b> AWS guides</li><li><b>3</b> practice labs</li></ul></div><div class="hero-r">'+heroArt()+'</div></div>'+
+    '<h2 class="hh">Learn</h2><div class="sgrid">'+learn+'</div><h2 class="hh">Practice</h2><div class="sgrid">'+prac+'</div>'+
+    '<h2 class="hh">How it works</h2><div class="how"><div><b>1 · Watch</b><p>Every step has an animated 3D diagram showing what really happens, with plain-language labels.</p></div><div><b>2 · Try</b><p>Use the controls, break things, and build your own setups in the practice labs.</p></div><div><b>3 · Check</b><p>Finish each lesson with a short quiz, then download your notes.</p></div></div>';
+}
+function showHome(fromH){
+  clearTimers();hideGame();hmOn=true;$('.app').classList.add('hm');
+  if(!cur)cur=LESSONS[0];
+  renderStatic();renderHome();
+  if(!fromH){try{history.replaceState(null,'','#home')}catch(e){location.hash='home'}}
+  try{window.scrollTo(0,0)}catch(e){}
+  if(!lsGet('tour',0))setTimeout(function(){if(hmOn)tourOpen()},500);
+}
+function hideHome(){if(!hmOn)return;hmOn=false;$('.app').classList.remove('hm')}
+/* ----- quick check ----- */
+function startQuiz(){qzOn=true;QZ={id:cur.id,i:0,score:0,sel:null,done:false};renderCard();var c=$('#card');if(c&&c.scrollIntoView&&window.innerWidth<1100)c.scrollIntoView({behavior:'smooth',block:'start'})}
+function renderQuizCard(){
+  var q=QUIZ[QZ.id],n=q.length,L=lessonById(QZ.id),h;
+  if(QZ.done){
+    var li=LESSONS.indexOf(L),nl=LESSONS[li+1],sv=(seen[L.id]||[]).length;
+    $('#card').innerHTML='<div class="top"><span>LESSON COMPLETE</span><span class="chipTag">QUIZ '+QZ.score+'/'+n+'</span></div><h2>'+esc(L.name)+' done</h2><p>You scored <b>'+QZ.score+' of '+n+'</b> on the quick check and visited '+sv+' of '+L.steps.length+' steps. '+(QZ.score===n?'Perfect.':'Review any step from the list below the diagram, then retake it.')+'</p>'+
+     '<div class="nav done"><button class="btn go" type="button" id="qnextL"><span>'+(nl?'Next lesson: '+esc(nl.name):'Back to the home page')+'</span><span aria-hidden="true">→</span></button></div>'+
+     '<div class="lrow"><button class="btn" type="button" data-notes="md">Download notes</button><button class="btn" type="button" data-notes="print">Print or save as PDF</button><button class="btn" type="button" id="qretry">Retake quiz</button></div>';
+    return;
+  }
+  var cq=q[QZ.i],ans=QZ.sel!=null;
+  h='<div class="top"><span>QUICK CHECK · '+(QZ.i+1)+' / '+n+'</span><span class="chipTag">'+esc(L.name)+'</span></div><h2>'+esc(cq[0])+'</h2><div class="qopts" role="group" aria-label="Answers">'+cq[1].map(function(o,k){
+    var cls='btn qopt'+(ans?(k===cq[2]?' ok':(k===QZ.sel?' bad':'')):'');
+    return '<button class="'+cls+'" type="button" data-qopt="'+k+'"'+(ans?' disabled':'')+'>'+esc(o)+'</button>'}).join('')+'</div>';
+  if(ans)h+='<div class="idea"><b>'+(QZ.sel===cq[2]?'Correct':'Not quite')+'</b>'+esc(cq[3])+'</div>';
+  h+='<div class="nav"><button class="btn" type="button" id="qback">← Back to the lesson</button>'+(ans?'<button class="btn go" type="button" id="qnext"><span>'+(QZ.i===n-1?'See my result':'Next question')+'</span><span aria-hidden="true">→</span></button>':'')+'</div>';
+  $('#card').innerHTML=h;
+}
+/* ----- notes ----- */
+function notesMD(L){
+  var o=['# '+L.name+' — study notes','','> '+L.blurb,'','## What you are looking at',''];
+  (L.parts||[]).forEach(function(p){o.push('- **'+p[2]+'**: '+p[3])});
+  o.push('','## Steps','');
+  L.steps.forEach(function(s,i){o.push('### '+(i+1)+'. '+s.title+' ('+s.tag+')','',s.text,'','> Key idea: '+s.idea,'')});
+  var q=QUIZ[L.id]||[];if(q.length){o.push('## Quick check','');q.forEach(function(x,i){o.push((i+1)+'. '+x[0],'   - Answer: **'+x[1][x[2]]+'**. '+x[3])})}
+  o.push('','---','Made with OpsLens.');return o.join('\n');
+}
+function notesHTML(L){
+  var h='<h1>'+esc(L.name)+' — study notes</h1><p><em>'+esc(L.blurb)+'</em></p><h2>What you are looking at</h2><ul>'+(L.parts||[]).map(function(p){return '<li><b>'+esc(p[2])+'</b>: '+esc(p[3])+'</li>'}).join('')+'</ul><h2>Steps</h2>';
+  L.steps.forEach(function(s,i){h+='<h3>'+(i+1)+'. '+esc(s.title)+' <small>('+esc(s.tag)+')</small></h3><p>'+esc(s.text)+'</p><blockquote><b>Key idea:</b> '+esc(s.idea)+'</blockquote>'});
+  var q=QUIZ[L.id]||[];if(q.length){h+='<h2>Quick check</h2><ol>'+q.map(function(x){return '<li>'+esc(x[0])+'<br><b>Answer: '+esc(x[1][x[2]])+'.</b> '+esc(x[3])+'</li>'}).join('')+'</ol>'}
+  return h+'<p class="pf">Made with OpsLens.</p>';
+}
+function notesDownload(L){
+  try{var b=new Blob([notesMD(L)],{type:'text/markdown'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=L.id+'-notes.md';document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(u)},2000)}catch(e){}
+}
+function notesPrint(L){$('#printdoc').innerHTML=notesHTML(L);try{window.print()}catch(e){}}
+/* ----- tour ----- */
+var TOUR=[["Welcome to OpsLens","Seven interactive lessons, three practice labs and 24 AWS guides. Everything runs in your browser, and your progress is saved there."],["Pick a lesson","The tabs at the top open a lesson. Each one has an animated 3D diagram, short step cards, and a quick check at the end."],["Practice what you learn","The Practice menu has the Incident Room game, the Build Lab for designing your own infrastructure, and a Git Practice terminal."],["Find anything fast","The Sections button opens a window listing every lesson, step and AWS guide, with your progress."]];
+function tourOpen(){
+  var t=$('#tour');if(!t){t=document.createElement('div');t.id='tour';t.className='mdl';t.setAttribute('role','dialog');t.setAttribute('aria-modal','true');t.setAttribute('aria-labelledby','tourT');$('.app').appendChild(t)}
+  tourI=0;t.hidden=false;tourRender();
+}
+function tourRender(){
+  var s=TOUR[tourI],last=tourI===TOUR.length-1;
+  $('#tour').innerHTML='<div class="tour-win"><span class="eyebrow">'+(tourI+1)+' of '+TOUR.length+'</span><h2 id="tourT">'+esc(s[0])+'</h2><p>'+esc(s[1])+'</p><div class="tour-dots">'+TOUR.map(function(x,i){return '<i class="'+(i===tourI?'on':'')+'"></i>'}).join('')+'</div><div class="lrow"><button class="btn go" type="button" id="tourNext"><span>'+(last?'Start learning':'Next')+'</span><span aria-hidden="true">→</span></button>'+(tourI?'<button class="btn" type="button" id="tourBack">Back</button>':'')+'<button class="btn" type="button" id="tourSkip">'+(last?'Close':'Skip')+'</button></div></div>';
+  $('#tourNext').focus();
+}
+function tourClose(){var t=$('#tour');if(t)t.hidden=true;lsSet('tour',1)}
+document.addEventListener('click',function(e){
+  var t=e.target.closest?e.target.closest('button,.brand'):null;if(!t)return;
+  if(t.classList.contains('brand')){nav('#home');return}
+  var d=t.dataset;
+  if(d.resume){var r=lsGet('resume',null);if(r)pick(r.id,r.idx);return}
+  if(d.maws){mOpen();MS='aws';MSVC=null;mRender();return}
+  if(d.tour){tourOpen();return}
+  if(d.qopt!=null&&QZ&&QZ.sel==null){var k=parseInt(d.qopt,10);QZ.sel=k;if(k===QUIZ[QZ.id][QZ.i][2])QZ.score++;renderCard();return}
+  if(t.id==='qnext'){if(QZ.i===QUIZ[QZ.id].length-1){QZ.done=true;var dn=lessonDone();dn[QZ.id]=QZ.score;lsSet('done',dn)}else{QZ.i++;QZ.sel=null}renderCard();return}
+  if(t.id==='qback'){qzOn=false;go(cur.steps.length-1);return}
+  if(t.id==='qretry'){startQuiz();return}
+  if(t.id==='qnextL'){var li=LESSONS.indexOf(cur),nl=LESSONS[li+1];qzOn=false;if(nl)pick(nl.id,0);else nav('#home');return}
+  if(d.notes){if(d.notes==='md')notesDownload(cur);else notesPrint(cur);return}
+  if(t.id==='tourNext'){if(tourI===TOUR.length-1){tourClose();pick('git',0)}else{tourI++;tourRender()}return}
+  if(t.id==='tourBack'){tourI--;tourRender();return}
+  if(t.id==='tourSkip'){tourClose();return}
+  if(t.id==='themeBtn'){var cu=document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';document.documentElement.setAttribute('data-theme',cu);lsSet('theme',cu);return}
+  if(t.id==='contBtn'){var r2=lsGet('resume',null);if(r2)pick(r2.id,r2.idx);return}
+});
+document.addEventListener('keydown',function(e){
+  var t=$('#tour');if(t&&!t.hidden&&e.key==='Escape'){e.stopPropagation();tourClose()}
+  if(e.key==='Enter'&&e.target&&e.target.classList&&e.target.classList.contains('brand'))nav('#home');
+},true);
 
 window.addEventListener('hashchange',fromHash);
 fromHash();

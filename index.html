@@ -6,11 +6,23 @@
 <title>OpsLens</title>
 <meta name="description" content="OpsLens: animated, interactive lessons on Git, Docker, Kubernetes, AWS EC2 and S3, scaling and CI/CD, plus an on-call incident game.">
 <meta name="theme-color" content="#060c13">
+<link rel="canonical" href="https://opslens-nine.vercel.app/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="OpsLens">
+<meta property="og:title" content="OpsLens: learn DevOps by watching it work">
+<meta property="og:description" content="Animated 3D lessons, hands-on labs and quick quizzes for Git, Docker, Kubernetes and AWS.">
+<meta property="og:url" content="https://opslens-nine.vercel.app/">
+<meta property="og:image" content="https://opslens-nine.vercel.app/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="OpsLens: learn DevOps by watching it work">
+<meta name="twitter:description" content="Animated 3D lessons, hands-on labs and quick quizzes for Git, Docker, Kubernetes and AWS.">
+<meta name="twitter:image" content="https://opslens-nine.vercel.app/og.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap">
-<link rel="stylesheet" href="/style.css?v=8">
+<link rel="stylesheet" href="/style.css?v=9">
 </head>
 <body>
 
@@ -22,11 +34,13 @@
       <span>Ops<b>Lens</b></span><em class="tag">DevOps command center</em>
     </div>
     <nav class="lessons" id="lessons" aria-label="Lessons"></nav>
-    <div class="hd-r"><div class="pmenu"><button class="tab" id="pBtn" type="button" aria-haspopup="true" aria-expanded="false"><span id="pLab">Practice</span> <span aria-hidden="true">▾</span></button><div class="pmenu-list" id="pMenu" hidden></div></div><button class="menubtn" id="menuBtn" type="button" aria-haspopup="dialog"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span class="t">Sections</span></button></div>
+    <div class="hd-r"><div class="pmenu"><button class="tab" id="pBtn" type="button" aria-haspopup="true" aria-expanded="false"><span id="pLab">Practice</span> <span aria-hidden="true">▾</span></button><div class="pmenu-list" id="pMenu" hidden></div></div><button class="menubtn" id="contBtn" type="button" hidden>Continue</button><button class="themebtn" id="themeBtn" type="button" aria-label="Switch theme">◐</button><button class="menubtn" id="menuBtn" type="button" aria-haspopup="dialog"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span class="t">Sections</span></button></div>
   </header>
 
   <section class="kpis" id="kpis" aria-label="Your study numbers"></section>
 
+  <div id="home" class="home" aria-live="polite"></div>
+  <div id="printdoc" aria-hidden="true"></div>
   <div class="deck">
     <div class="mainc">
       <div class="ltitle" id="ltitle"></div>
@@ -66,6 +80,6 @@
   <footer class="foot"><span><b>OpsLens</b> · An interactive DevOps study lab</span><span>Use ← → to move between steps · Progress is saved in this browser only</span></footer>
 </div>
 
-<script src="/app.js?v=8" defer></script>
+<script src="/app.js?v=9" defer></script>
 </body>
 </html>

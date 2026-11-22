@@ -1,6 +1,6 @@
 # OpsLens
 
-Animated, interactive lessons on Git, Docker, Kubernetes, AWS EC2 and S3, scaling and CI/CD, plus the Incident Room on-call game.
+Animated, interactive lessons on Git, Docker, Kubernetes, AWS EC2 and S3, scaling and CI/CD, plus the Incident Room on-call game, a Build Lab, a Git Practice terminal, 24 AWS service guides, quick-check quizzes, downloadable notes, a landing page with resume, and light and dark themes.
 It is a plain static site: no build step, no dependencies, no secrets.
 
 ## Files
@@ -8,6 +8,8 @@ It is a plain static site: no build step, no dependencies, no secrets.
 | File | What it does |
 |---|---|
 | `index.html` | The page shell. Loads the fonts, `style.css` and `app.js`. |
+| `404.html`, `notfound.css` | Styled not-found page. |
+| `og.png`, `apple-touch-icon.png` | Share preview and home-screen icon. |
 | `style.css` | All styles, with light and dark themes. |
 | `app.js` | All lessons, diagrams and the game. No inline scripts, so the strict security policy works. |
 | `favicon.svg` | The OpsLens logo (rack and lens). |

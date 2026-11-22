@@ -532,3 +532,72 @@ body{background-image:radial-gradient(1100px 520px at 12% -8%,rgba(47,232,196,.1
  .mdl .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.mdl .bottom{grid-template-columns:1fr}
  .menubtn span.t{display:none}
 }
+/* landing, quiz, tour, light theme, calmer glow */
+#home{display:none}
+.app.hm #home{display:block}
+.app.hm .deck,.app.hm #kpis,.app.hm #bottom,.app.hm .ltitle{display:none!important}
+.hero{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:24px;align-items:center;padding:28px 0 8px}
+.hero h1{font-size:clamp(2rem,5vw,3.1rem);line-height:1.08;margin:10px 0 12px}
+.hero p{color:var(--muted);max-width:52ch;margin:0 0 18px}
+.eyebrow{font:700 .72rem var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--neon)}
+.hero-cta{display:flex;flex-wrap:wrap;gap:10px}
+.hero-cta .btn.go{flex:0 1 auto;min-width:240px}
+.hero-stats{display:flex;flex-wrap:wrap;gap:8px 22px;list-style:none;padding:0;margin:20px 0 0;color:var(--muted);font-size:.9rem}
+.hero-stats b{color:var(--ink);font-family:var(--f-display);font-size:1.3rem;margin-right:4px}
+.hero-r{min-width:0}.hero-r svg{width:100%;height:auto;display:block}
+.hh{font-size:1.2rem;margin:28px 0 12px}
+.how{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.how>div{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:16px}
+.how p{margin:6px 0 0;color:var(--muted);font-size:.92rem}
+@media(max-width:760px){.hero{grid-template-columns:1fr}.how{grid-template-columns:1fr}}
+.qopts{display:grid;gap:8px;margin:12px 0}
+.qopt{text-align:left;box-shadow:none;font-weight:500}
+.qopt.ok{background:var(--okbg);border-color:var(--res)}
+.qopt.bad{background:var(--badbg);border-color:var(--bad)}
+.qopt:disabled{opacity:1}
+.lrow{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.nav.done .btn.go{flex:1 1 100%}
+#tour{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px}
+#tour[hidden]{display:none}
+.tour-win{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:16px;padding:24px;max-width:440px;width:100%}
+.tour-win h2{margin:6px 0 8px}.tour-win p{color:var(--muted);margin:0 0 14px}
+.tour-dots{display:flex;gap:6px;margin-bottom:6px}.tour-dots i{width:8px;height:8px;border-radius:50%;background:var(--line)}.tour-dots i.on{background:var(--neon)}
+.brand{cursor:pointer}
+#printdoc{display:none}
+@media print{
+ body>*:not(.app),.app>*:not(#printdoc){display:none!important}
+ #printdoc{display:block!important;color:#000;background:#fff;font:12pt/1.5 Georgia,serif}
+ body{background:#fff!important;padding:0}
+ #printdoc blockquote{border-left:3px solid #999;margin:6px 0;padding:2px 10px}
+}
+/* calmer glow */
+.brand svg,.donut circle:nth-child(2),.parts li .i{filter:none!important}
+svg .bx.st-pass,svg .bx.pod-run,svg .bx.st-run,svg .bx.st-fail,svg .bx.pod-crash,svg .pk.c-res,svg .pk.c-req{filter:none!important}
+h1,h2,h3,.kpi b,.kpis *{text-shadow:none!important}
+/* light theme */
+:root[data-theme=light]{color-scheme:light;
+ --bg:#f4f7f9;--grid:#d5e0e6;--surface:#ffffff;--pad:#e9f0f4;--ink:#0f2230;--muted:#506b78;--line:#cfdce3;--shadow:rgba(15,34,48,.12);
+ --neon:#0a8f78;--req:#0b7fc4;--res:#0e9a62;--slow:#c9701a;--queue:#a8820a;--bad:#d03a49;
+ --okbg:#d9f4ec;--runbg:#dcecf8;--badbg:#fbe0e4;--waitbg:#f8efc9;--focus:#0b7fc4}
+:root[data-theme=light] .svgwrap,:root[data-theme=light] .stagebar,:root[data-theme=light] .labcanvas,:root[data-theme=light] .gpterm,:root[data-theme=light] .gptm,:root[data-theme=light] .gpg{
+ --bg:#060c13;--grid:#12303a;--surface:#0d1822;--pad:#112230;--ink:#e6f6f3;--muted:#8fa9b3;--line:#1b3a42;--shadow:rgba(0,0,0,.45);--neon:#2fe8c4;--req:#35b7ff;--res:#2fe8a0;--slow:#ffa24a;--queue:#f2c744;--bad:#ff5f6d;--okbg:#0d3a34;--runbg:#0f3550;--badbg:#431924;--waitbg:#3b3312;color:var(--ink)}
+:root[data-theme=light] .hero-r{background:#060c13;border-radius:16px;padding:8px}
+.themebtn{border:2px solid var(--ink);background:var(--surface);border-radius:10px;padding:8px 10px;min-height:40px;line-height:1}
+/* light theme surfaces */
+:root[data-theme=light] .mdl,:root[data-theme=light] .stage{--bg:#060c13;--grid:#12303a;--surface:#0d1822;--pad:#112230;--ink:#e6f6f3;--muted:#8fa9b3;--line:#1b3a42;--shadow:rgba(0,0,0,.45);--neon:#2fe8c4;--req:#35b7ff;--res:#2fe8a0;--slow:#ffa24a;--queue:#f2c744;--bad:#ff5f6d;--okbg:#0d3a34;--runbg:#0f3550;--badbg:#431924;--waitbg:#3b3312;color:var(--ink)}
+:root[data-theme=light] body{background:#eef3f6}
+:root[data-theme=light] .bar,:root[data-theme=light] .panel,:root[data-theme=light] .steps,:root[data-theme=light] .card,:root[data-theme=light] .who,:root[data-theme=light] .tile,:root[data-theme=light] .kpi,:root[data-theme=light] .scard,:root[data-theme=light] .how>div,:root[data-theme=light] .parts li{background:#fff;border-color:var(--line);box-shadow:0 1px 2px rgba(15,34,48,.06)}
+:root[data-theme=light] .card h2{background:none;-webkit-text-fill-color:currentColor;color:var(--ink)}
+:root[data-theme=light] .tab,:root[data-theme=light] .btn,:root[data-theme=light] .opt,:root[data-theme=light] .themebtn,:root[data-theme=light] .pmenu-list{background:#fff;border:1px solid var(--line);color:var(--ink)}
+:root[data-theme=light] .tab[aria-current=true],:root[data-theme=light] .btn.go,:root[data-theme=light] .menubtn{background:#d9f4ec;border-color:var(--neon);color:var(--ink);box-shadow:none}
+:root[data-theme=light] .steps li.cur .lab,:root[data-theme=light] .grec b,:root[data-theme=light] .tile .v,:root[data-theme=light] .kpi b{color:var(--ink)}
+:root[data-theme=light] .steps li::before{background:var(--line)}
+:root[data-theme=light] .dot{background:#fff;border-color:#9fb6c1;color:var(--ink)}
+:root[data-theme=light] .ctl-box{background:var(--pad);border-color:#9fb6c1}
+:root[data-theme=light] .idea,:root[data-theme=light] .chipTag{background:#e3f6f1}
+:root[data-theme=light] .pb,:root[data-theme=light] .prow .bar{background:#dbe6ec}
+:root[data-theme=light] .brand b{color:var(--req)}
+:root[data-theme=light] .stage .btn,:root[data-theme=light] .stage .tile,:root[data-theme=light] .mdl .btn,:root[data-theme=light] .mdl .scard,:root[data-theme=light] .mdl .tile{background:rgba(13,24,34,.85);border-color:#1f4a50;color:#e6f6f3}
+:root[data-theme=light] .stage .tile{background:linear-gradient(180deg,rgba(18,36,48,.9),rgba(9,19,27,.92))}
+:root[data-theme=light] .stage .tile .v{color:#fff}
+:root[data-theme=light] .mdl .btn.go{background:rgba(47,232,196,.14);border-color:#2fe8c4;color:#fff}
