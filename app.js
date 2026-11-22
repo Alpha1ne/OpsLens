@@ -1053,11 +1053,11 @@ function gameEnd(){
     '<div class="metrics"><div class="tile ok"><div class="k">Score</div><div class="v">'+GS.score+'</div></div><div class="tile ok"><div class="k">Fixed</div><div class="v">'+GS.right+' / '+(GS.i+1)+'</div></div><div class="tile'+(isBest?' ok':'')+'"><div class="k">Best</div><div class="v">'+Math.max(best,GS.score)+'</div></div></div>'+
     (isBest?'<p class="gk">NEW PERSONAL BEST</p>':'')+
     (GS.missed.length?'<div class="miss"><h3>Study these</h3><ul>'+GS.missed.map(function(m){return '<li><b>'+esc(m.tag)+'</b><span>'+esc(m.opts[m.ok])+'</span></li>'}).join('')+'</ul></div>':'<p>No misses. Clean shift.</p>')+
-    '<div class="nav"><button class="btn run" type="button" id="gstart">Play again</button><button class="btn" type="button" data-lesson="kubernetes">Study Kubernetes</button><button class="btn" type="button" data-go="home">Back to dashboard</button></div></div>';
+    '<div class="nav"><button class="btn run" type="button" id="gstart">Play again</button><button class="btn" type="button" data-lesson="kubernetes">Study Kubernetes</button><button class="btn" type="button" data-lesson="git">Back to lessons</button></div></div>';
 }
 function showGame(fromHash){
   clearTimers();gameOn=true;
-  $('.app').classList.add('gm');setV('game');
+  $('.app').classList.add('gm');
   renderStatic();
   if(!GS||GS.state==='done')gameHome();
   if(!fromHash){try{history.replaceState(null,'','#game')}catch(e){location.hash='game'}}
@@ -1067,7 +1067,7 @@ function hideGame(){if(!gameOn)return;gameOn=false;clearInterval(gtimer);GS=null
 
 /* ---------- order and grouping ---------- */
 (function(){
-  var groups={scaling:'Architecture',pipeline:'Delivery',kubernetes:'Containers',ec2:'AWS',s3:'AWS'};
+  var groups={scaling:'Cloud',pipeline:'Delivery',kubernetes:'Containers'};
   LESSONS.forEach(function(L){if(groups[L.id])L.group=groups[L.id]});
   var order=['git','docker','kubernetes','ec2','s3','scaling','pipeline'];
   LESSONS.sort(function(a,b){return order.indexOf(a.id)-order.indexOf(b.id)});
@@ -1098,7 +1098,7 @@ function renderDash(){
   var total=0,vis=0,done=0;
   LESSONS.forEach(function(L){var n=(seen[L.id]||[]).length;total+=L.steps.length;vis+=n;if(n>=L.steps.length)done++});
   var pct=total?Math.round(vis/total*100):0,best=lsGet('best',0),last=lsGet('last',0),shifts=lsGet('shifts',0);
-  $('#kpis').innerHTML=kpi('layers','Lessons',LESSONS.length)+kpi('clipboard','Steps',total)+kpi('shield','Steps visited',vis+' <em>('+pct+'%)</em>')+kpi('cloud','AWS guides read',svcSeen.length+'/'+svcGuides().length)+kpi('clock','Day streak',streakDays());
+  $('#kpis').innerHTML=kpi('layers','Lessons',LESSONS.length)+kpi('clipboard','Steps',total)+kpi('shield','Steps visited',vis+' <em>('+pct+'%)</em>')+kpi('rocket','Best shift score',best)+kpi('clock','Day streak',streakDays());
   $('#progTop').innerHTML='<div class="ptop">'+donut(pct)+'<ul class="plg"><li><i style="background:#2fe8c4"></i>Visited <b>'+vis+'</b></li><li><i style="background:#16303a"></i>Remaining <b>'+(total-vis)+'</b></li><li><i style="background:#35b7ff"></i>Lessons finished <b>'+done+'/'+LESSONS.length+'</b></li></ul></div>';
   $('#progList').innerHTML=LESSONS.map(function(L,k){
     var n=(seen[L.id]||[]).length,t=L.steps.length,pc=Math.round(n/t*100),col=LCOL[k%LCOL.length];
@@ -1127,6 +1127,86 @@ $('#who').innerHTML=icSvg('user',20,{k:1})+'<span>Learner</span>';
 tick();setInterval(tick,30000);
 
 
+function renderStatic(){
+  var gorder=[],gmap={};
+  LESSONS.forEach(function(L){if(!gmap[L.group]){gmap[L.group]=[];gorder.push(L.group)}gmap[L.group].push(L)});
+  $('#lessons').innerHTML=gorder.map(function(g){
+    return '<div class="grp"><span class="gl">'+esc(g)+'</span>'+gmap[g].map(function(L){return '<button class="tab" type="button" data-lesson="'+L.id+'"'+(L===cur&&!gameOn?' aria-current="true"':'')+'>'+icSvg(L.icon||'server',18)+esc(L.name)+'</button>'}).join('')+'</div>';
+  }).join('')+'<div class="grp"><span class="gl">Play</span><button class="tab" type="button" data-game="1"'+(gameOn?' aria-current="true"':'')+'>'+icSvg('firewall',18)+'Incident Room</button></div>';
+  $('#intro').textContent=cur.blurb;
+  $('#partsList').innerHTML=(cur.parts||[]).map(function(p,k){return '<li style="animation-delay:'+(k*50)+'ms">'+icSvg(p[0],42,p[1])+'<div><b>'+esc(p[2])+'</b><span>'+esc(p[3])+'</span></div></li>'}).join('');
+  $('#legend').innerHTML=cur.legend.map(function(l){return '<li><i class="'+l[0]+'"></i>'+esc(l[1])+'</li>'}).join('');
+  var sv=seen[cur.id]||[];
+  renderDash();
+  $('#stepper').innerHTML=cur.steps.map(function(s,i){
+    return '<li class="'+(i===idx?'cur':(sv.indexOf(i)>-1?'seen':''))+'"><button type="button" data-step="'+i+'"'+(i===idx?' aria-current="step"':'')+'><span class="dot">'+(i+1)+'</span><span class="lab">'+esc(s.label)+'</span></button></li>';
+  }).join('');
+}
+function renderCard(){
+  var st=cur.steps[idx],last=idx===cur.steps.length-1;
+  var li=LESSONS.indexOf(cur),nextL=LESSONS[li+1];
+  var nextLabel=last?(nextL?'Next lesson: '+nextL.name:'Back to the first lesson'):'Next: '+cur.steps[idx+1].label;
+  $('#card').innerHTML=
+    '<div class="top"><span>STEP '+(idx+1)+' / '+cur.steps.length+'</span><span class="chipTag">'+esc(st.tag)+'</span></div>'+
+    '<h2>'+esc(st.title)+'</h2><p>'+esc(st.text)+'</p>'+
+    '<div class="idea"><b>Key idea</b>'+esc(st.idea)+'</div>'+
+    '<div class="ctl-box" id="ctl">'+(st.pg?cur.pg.controls(getPG(cur)):'')+'</div>'+
+    '<div class="nav"><button class="btn" type="button" id="back"'+(idx===0?' disabled':'')+'>← Back</button><button class="btn go" type="button" id="next"><span>'+esc(nextLabel)+'</span><span aria-hidden="true">→</span></button></div>';
+}
+function go(i,fromHash){
+  clearTimers();
+  idx=clamp(i,0,cur.steps.length-1);
+  var sv=seen[cur.id]||(seen[cur.id]=[]);if(sv.indexOf(idx)<0){sv.push(idx);lsSet('seen',seen)}
+  logAct();
+  if(cur.steps[idx].pg){var p=getPG(cur);if(cur.id==='pipeline'){p.running=false}}
+  renderStatic();renderStage(true);renderCard();
+  if(!fromHash){try{history.replaceState(null,'','#'+cur.id+'-'+(idx+1))}catch(e){location.hash=cur.id+'-'+(idx+1)}}
+}
+function pick(id,i,fromHash){
+  hideGame();
+  for(var k=0;k<LESSONS.length;k++)if(LESSONS[k].id===id){cur=LESSONS[k];go(i,fromHash);return true}
+  return false;
+}
+function fromHash(){
+  if(location.hash==='#game'){if(!cur)cur=LESSONS[0];showGame(true);return}
+  hideGame();
+  var m=/^#([a-z0-9]+)-(\d+)$/.exec(location.hash||'');
+  if(m&&pick(m[1],parseInt(m[2],10)-1,true))return;
+  cur=LESSONS[0];go(0,true);
+}
+
+document.addEventListener('click',function(e){
+  var t=e.target.closest?e.target.closest('button'):null;if(!t)return;
+  if(t.dataset.game){showGame();return}
+  if(t.dataset.gopt!=null){gameAnswer(parseInt(t.dataset.gopt,10));return}
+  if(t.id==='gstart'){gameStart();return}
+  if(t.id==='gnext'){gameNext();return}
+  if(t.dataset.lesson){pick(t.dataset.lesson,0);return}
+  if(t.dataset.step!=null){go(parseInt(t.dataset.step,10));return}
+  if(t.id==='back'){go(idx-1);return}
+  if(t.id==='next'){
+    if(idx<cur.steps.length-1)go(idx+1);
+    else{var li=LESSONS.indexOf(cur);cur=LESSONS[(li+1)%LESSONS.length];go(0)}
+    return;
+  }
+  if(t.id==='replay'){renderStage(true);return}
+  if(t.dataset.act){cur.pg.act(getPG(cur),t.dataset.act);if(t.dataset.act!=='run')renderStage();return}
+});
+document.addEventListener('input',function(e){
+  var t=e.target;if(!t||!t.dataset||!t.dataset.k)return;
+  var k=t.dataset.k,v=t.type==='checkbox'?t.checked:Number(t.value),p=getPG(cur);
+  if(cur.id==='scaling'&&k==='failed'&&v&&p.servers<2){t.checked=false;kmsg('Add a second server first.');return}
+  cur.pg.set(p,k,v);
+  var sp=$('#v-'+k);if(sp)sp.textContent=(cur.pg.fmt&&cur.pg.fmt[k])?cur.pg.fmt[k](v):v;
+  if(cur.id==='scaling'&&k==='servers'&&v<2&&p.failed){p.failed=false;var c=$('#c-failed');if(c)c.checked=false}
+  renderStage();
+});
+document.addEventListener('keydown',function(e){
+  if(!$('#mdl').hidden)return;
+  if(gameOn){if(GS&&GS.state==='q'&&/^[123]$/.test(e.key)){var ob=document.querySelectorAll('.opt')[+e.key-1];if(ob)ob.click()}return}
+  if(!$('#mdl').hidden)return;var tg=e.target&&e.target.tagName;if(tg==='INPUT'&&e.target.type==='range')return;
+  if(e.key==='ArrowRight')go(idx+1);else if(e.key==='ArrowLeft')go(idx-1);
+});
 /* ---------- AWS service guides ---------- */
 var AWSCATS=['Compute','Containers','Storage','Database','Networking','Security','CI/CD','Infrastructure and operations','Monitoring','Messaging'];
 /* id, name, category, icon, one line, how DevOps uses it, concepts, commands, related lesson */
@@ -1161,8 +1241,7 @@ var SVC=[
 function svcById(id){for(var i=0;i<SVC.length;i++)if(SVC[i][0]===id)return SVC[i];return null}
 function svcGuides(){return SVC.filter(function(s){return s[7].length})}
 var svcSeen=lsGet('svcseen',[]);
-/* ---------- views: dashboard, AWS hub, service guides ---------- */
-var V='home',APP=document.querySelector('.app');
+/* ---------- contents window: sidebar of sections, list of everything inside ---------- */
 var SECT=[
  {id:'git',kind:'lesson',lesson:'git',tag:'Code',icon:'branch'},
  {id:'docker',kind:'lesson',lesson:'docker',tag:'Containers',icon:'container'},
@@ -1173,157 +1252,84 @@ var SECT=[
  {id:'game',kind:'game',name:'Incident Room',tag:'Play',icon:'firewall'}
 ];
 function lessonById(id){for(var i=0;i<LESSONS.length;i++)if(LESSONS[i].id===id)return LESSONS[i];return null}
-function nav(h){if(location.hash===h)fromHash();else location.hash=h}
-function setV(v){V=v;APP.setAttribute('data-v',v);if(v!=='game')APP.classList.remove('gm');renderNav();renderCrumb();try{window.scrollTo(0,0)}catch(e){}}
 function secName(s){return s.name||lessonById(s.lesson).name}
-function curSect(){
-  if(V==='home')return 'home';if(V==='game')return 'game';if(V==='aws'||V==='svc')return 'aws';
-  return (cur&&(cur.id==='ec2'||cur.id==='s3'))?'aws':(cur?cur.id:'');
-}
-function renderNav(){
-  var c=curSect();
-  $('#lessons').innerHTML='<button class="tab" type="button" data-go="home"'+(c==='home'?' aria-current="true"':'')+'>'+icSvg('window',18)+'Dashboard</button>'+
-  SECT.map(function(s){
-    var a=c===s.id?' aria-current="true"':'',at=s.kind==='lesson'?'data-lesson="'+s.lesson+'"':(s.kind==='aws'?'data-go="aws"':'data-game="1"');
-    return '<button class="tab" type="button" '+at+a+'>'+icSvg(s.icon,18)+esc(secName(s))+'</button>';
-  }).join('');
-}
-function renderCrumb(){
-  var a=[['Dashboard','home']];
-  if(V==='lesson'){if(cur.id==='ec2'||cur.id==='s3')a.push(['AWS','aws']);a.push([cur.name.replace(/^AWS /,'')])}
-  else if(V==='game')a.push(['Incident Room']);
-  else if(V==='aws')a.push(['AWS']);
-  else if(V==='svc'){a.push(['AWS','aws']);a.push([svcNow?svcNow[1]:''])}
-  $('#crumb').innerHTML=a.map(function(x){return x[1]?'<button type="button" data-go="'+x[1]+'">'+esc(x[0])+'</button>':'<b>'+esc(x[0])+'</b>'}).join('<span aria-hidden="true">›</span>');
-}
+var MS='overview',MSVC=null,mLast=null;
+function mCur(){if(gameOn)return 'game';return (cur&&(cur.id==='ec2'||cur.id==='s3'))?'aws':(cur?cur.id:'overview')}
+function mOpen(){mLast=document.activeElement;MS=mCur();MSVC=null;$('#mdl').hidden=false;try{document.body.style.overflow='hidden'}catch(e){}mRender();$('#mclose').focus()}
+function mClose(){$('#mdl').hidden=true;try{document.body.style.overflow=''}catch(e){}if(mLast&&mLast.focus)mLast.focus()}
 function secProg(s){
   if(s.kind==='game')return null;
   if(s.kind==='lesson'){var L=lessonById(s.lesson);return [(seen[L.id]||[]).length,L.steps.length]}
   var n=0,t=0;['ec2','s3'].forEach(function(id){var L=lessonById(id);n+=(seen[id]||[]).length;t+=L.steps.length});
   return [n+svcSeen.length,t+svcGuides().length];
 }
-function renderHome(){
-  renderDash();
-  $('#home').innerHTML='<div class="hhead"><h1>Study sections</h1><p>Pick a section to open its lessons. Your progress is saved in this browser.</p></div><div class="sgrid">'+SECT.map(function(s){
-    var pr=secProg(s),at=s.kind==='lesson'?'data-lesson="'+s.lesson+'"':(s.kind==='aws'?'data-go="aws"':'data-game="1"'),blurb,meta;
-    if(s.kind==='lesson'){var L=lessonById(s.lesson);blurb=L.blurb;meta=L.steps.length+' steps'}
-    else if(s.kind==='aws'){blurb='Hands-on EC2 and S3 lessons, plus short guides to the '+svcGuides().length+' other AWS services DevOps teams use every day.';meta='2 lessons · '+svcGuides().length+' guides'}
-    else{blurb='An on-call game. Read the alert, pick your first move and beat the clock.';meta='Best '+lsGet('best',0)}
-    return '<button class="scard" type="button" '+at+'><span class="sh"><span class="sico">'+icSvg(s.icon,34)+'</span><span><span class="st">'+esc(s.tag)+'</span><span class="sn">'+esc(secName(s))+'</span></span></span><span class="sp">'+esc(blurb)+'</span><span class="sm"><span>'+esc(meta)+'</span><span>'+(pr?pr[0]+'/'+pr[1]:'Play')+' →</span></span>'+(pr?'<span class="pb"><i style="width:'+Math.round(pr[0]/pr[1]*100)+'%"></i></span>':'')+'</button>';
-  }).join('')+'</div>';
+function mCard(s){
+  var pr=secProg(s),blurb,meta;
+  if(s.kind==='lesson'){var L=lessonById(s.lesson);blurb=L.blurb;meta=L.steps.length+' steps'}
+  else if(s.kind==='aws'){blurb='Hands-on EC2 and S3 lessons, plus short guides to '+svcGuides().length+' more AWS services.';meta='2 lessons · '+svcGuides().length+' guides'}
+  else{blurb='An on-call game. Read the alert, pick your first move and beat the clock.';meta='Best '+lsGet('best',0)}
+  return '<button class="scard" type="button" data-mgo="'+s.id+'"><span class="sh"><span class="sico">'+icSvg(s.icon,30)+'</span><span><span class="st">'+esc(s.tag)+'</span><span class="sn">'+esc(secName(s))+'</span></span></span><span class="sp">'+esc(blurb)+'</span><span class="smeta"><span>'+esc(meta)+'</span><span>'+(pr?pr[0]+'/'+pr[1]:'Play')+' →</span></span>'+(pr?'<span class="pb"><i style="width:'+Math.round(pr[0]/pr[1]*100)+'%"></i></span>':'')+'</button>';
 }
-function renderAws(){
-  var h='<div class="hhead"><h1>AWS for DevOps</h1><p>The services you meet most often. EC2 and S3 are full interactive lessons. The rest are short guides with the ideas and commands you need first.</p></div>';
-  AWSCATS.forEach(function(c){
-    var items=SVC.filter(function(s){return s[2]===c});if(!items.length)return;
-    h+='<div class="agrp"><h3>'+esc(c)+'</h3><div class="sgrid compact">'+items.map(function(s){
-      var les=!s[7].length,at=les?'data-lesson="'+s[8]+'"':'data-svc="'+s[0]+'"',rd=!les&&svcSeen.indexOf(s[0])>-1;
-      return '<button class="scard" type="button" '+at+'><span class="sh"><span class="sico">'+icSvg(s[3],30)+'</span><span class="sn">'+esc(s[1])+'</span><span class="badge '+(les?'les':(rd?'rd':'gd'))+'">'+(les?'Lesson':(rd?'Read':'Guide'))+'</span></span><span class="sp">'+esc(s[4])+'</span></button>';
-    }).join('')+'</div></div>';
-  });
-  $('#awsHub').innerHTML=h;
-}
-var svcNow=null;
-function renderSvc(id){
-  var s=svcById(id);svcNow=s;
-  if(!s||!s[7].length){nav('#aws');return false}
-  if(svcSeen.indexOf(id)<0){svcSeen.push(id);lsSet('svcseen',svcSeen)}
+function mSvcDetail(s){
   var rel=s[8]?lessonById(s[8]):null;
-  $('#svcPage').innerHTML='<article class="svc"><div class="sh"><span class="sico">'+icSvg(s[3],44)+'</span><div><span class="st">AWS · '+esc(s[2])+'</span><h1>'+esc(s[1])+'</h1></div></div>'+
-   '<p class="lead">'+esc(s[4])+'</p>'+
-   '<h3 class="ph">Where DevOps uses it</h3><p>'+esc(s[5])+'</p>'+
-   '<h3 class="ph">Key ideas</h3><div class="tw"><table class="tb"><thead><tr><th>Term</th><th>Meaning</th></tr></thead><tbody>'+s[6].map(function(r){return '<tr><td><b>'+esc(r[0])+'</b></td><td>'+esc(r[1])+'</td></tr>'}).join('')+'</tbody></table></div>'+
-   '<h3 class="ph">Commands to know</h3><div class="tw"><table class="tb"><thead><tr><th>Command</th><th>What it does</th></tr></thead><tbody>'+s[7].map(function(r){return '<tr><td><code>'+esc(r[0])+'</code></td><td>'+esc(r[1])+'</td></tr>'}).join('')+'</tbody></table></div>'+
-   '<p class="note">Commands need the AWS CLI and a configured profile. Never type access keys into a command. Use <code>aws configure</code> or a role. Replace the placeholder values (ARN, ids, ACCOUNT) with your own.</p>'+
-   '<div class="nav"><button class="btn" type="button" data-go="aws">← All AWS services</button>'+(rel?'<button class="btn go" type="button" data-lesson="'+rel.id+'"><span>Related lesson: '+esc(rel.name)+'</span><span aria-hidden="true">→</span></button>':'')+'</div></article>';
-  return true;
+  return '<article class="svc"><div class="sh"><span class="sico">'+icSvg(s[3],40)+'</span><div><span class="st">AWS · '+esc(s[2])+'</span><h3 class="svt">'+esc(s[1])+'</h3></div></div><p class="lead">'+esc(s[4])+'</p>'+
+   '<h4 class="mh4">Where DevOps uses it</h4><p>'+esc(s[5])+'</p>'+
+   '<h4 class="mh4">Key ideas</h4><div class="tw"><table class="tb"><thead><tr><th>Term</th><th>Meaning</th></tr></thead><tbody>'+s[6].map(function(r){return '<tr><td><b>'+esc(r[0])+'</b></td><td>'+esc(r[1])+'</td></tr>'}).join('')+'</tbody></table></div>'+
+   '<h4 class="mh4">Commands to know</h4><div class="tw"><table class="tb"><thead><tr><th>Command</th><th>What it does</th></tr></thead><tbody>'+s[7].map(function(r){return '<tr><td><code>'+esc(r[0])+'</code></td><td>'+esc(r[1])+'</td></tr>'}).join('')+'</tbody></table></div>'+
+   '<p class="note">Commands need the AWS CLI and a configured profile. Never type access keys into a command. Use <code>aws configure</code> or a role. Replace placeholder values (ARN, ids, ACCOUNT) with your own.</p>'+
+   '<div class="mnavrow"><button class="btn" type="button" data-mgo="aws">← All AWS services</button>'+(rel?'<button class="btn go" type="button" data-mlesson="'+rel.id+'"><span>Related lesson: '+esc(rel.name)+'</span><span aria-hidden="true">→</span></button>':'')+'</div></article>';
 }
-function viewHome(){hideGame();setV('home');renderHome()}
-function viewAws(){hideGame();setV('aws');renderAws()}
-function viewSvc(id){hideGame();var s=svcById(id);svcNow=s;if(!renderSvc(id))return;setV('svc')}
-
-function renderStatic(){
-  renderNav();
-  $('#intro').textContent=cur.blurb;
-  $('#partsList').innerHTML=(cur.parts||[]).map(function(p,k){return '<li style="animation-delay:'+(k*50)+'ms">'+icSvg(p[0],42,p[1])+'<div><b>'+esc(p[2])+'</b><span>'+esc(p[3])+'</span></div></li>'}).join('');
-  $('#legend').innerHTML=cur.legend.map(function(l){return '<li><i class="'+l[0]+'"></i>'+esc(l[1])+'</li>'}).join('');
-  var sv=seen[cur.id]||[];
-  renderDash();
-  $('#stepper').innerHTML=cur.steps.map(function(s,i){
-    return '<li class="'+(i===idx?'cur':(sv.indexOf(i)>-1?'seen':''))+'"><button type="button" data-step="'+i+'"'+(i===idx?' aria-current="step"':'')+'><span class="dot">'+(i+1)+'</span><span class="lab">'+esc(s.label)+'</span></button></li>';
-  }).join('');
-}
-function renderCard(){
-  var st=cur.steps[idx],last=idx===cur.steps.length-1;
-  var li=LESSONS.indexOf(cur),nextL=LESSONS[li+1];
-  var nextLabel=last?(nextL?'Next lesson: '+nextL.name:'Back to the dashboard'):'Next: '+cur.steps[idx+1].label;
-  $('#card').innerHTML=
-    '<div class="top"><span>STEP '+(idx+1)+' / '+cur.steps.length+'</span><span class="chipTag">'+esc(st.tag)+'</span></div>'+
-    '<h2>'+esc(st.title)+'</h2><p>'+esc(st.text)+'</p>'+
-    '<div class="idea"><b>Key idea</b>'+esc(st.idea)+'</div>'+
-    '<div class="ctl-box" id="ctl">'+(st.pg?cur.pg.controls(getPG(cur)):'')+'</div>'+
-    '<div class="nav"><button class="btn" type="button" id="back"'+(idx===0?' disabled':'')+'>← Back</button><button class="btn go" type="button" id="next"><span>'+esc(nextLabel)+'</span><span aria-hidden="true">→</span></button></div>';
-}
-function go(i,fromHash){
-  clearTimers();
-  idx=clamp(i,0,cur.steps.length-1);
-  var sv=seen[cur.id]||(seen[cur.id]=[]);if(sv.indexOf(idx)<0){sv.push(idx);lsSet('seen',seen)}
-  logAct();
-  if(cur.steps[idx].pg){var p=getPG(cur);if(cur.id==='pipeline'){p.running=false}}
-  renderStatic();renderStage(true);renderCard();
-  if(!fromHash){try{history.replaceState(null,'','#'+cur.id+'-'+(idx+1))}catch(e){location.hash=cur.id+'-'+(idx+1)}}
-}
-function pick(id,i,fromHash){
-  hideGame();
-  for(var k=0;k<LESSONS.length;k++)if(LESSONS[k].id===id){cur=LESSONS[k];setV('lesson');go(i,fromHash);return true}
-  return false;
-}
-function fromHash(){
-  var h=location.hash||'#home';
-  if(h==='#game'){if(!cur)cur=LESSONS[0];showGame(true);return}
-  if(h==='#home'){viewHome();return}
-  if(h==='#aws'){viewAws();return}
-  var sv=/^#svc-([a-z0-9]+)$/.exec(h);
-  if(sv){viewSvc(sv[1]);return}
-  hideGame();
-  var m=/^#([a-z0-9]+)-(\d+)$/.exec(h);
-  if(m&&pick(m[1],parseInt(m[2],10)-1,true))return;
-  viewHome();
-}
-
-document.addEventListener('click',function(e){
-  var t=e.target.closest?e.target.closest('button'):null;if(!t)return;
-  if(t.dataset.game){nav('#game');return}
-  if(t.dataset.gopt!=null){gameAnswer(parseInt(t.dataset.gopt,10));return}
-  if(t.id==='gstart'){gameStart();return}
-  if(t.id==='gnext'){gameNext();return}
-  if(t.dataset.go){nav(t.dataset.go==='home'?'#home':'#aws');return}
-  if(t.dataset.svc){nav('#svc-'+t.dataset.svc);return}
-  if(t.dataset.lesson){nav('#'+t.dataset.lesson+'-1');return}
-  if(t.dataset.step!=null){go(parseInt(t.dataset.step,10));return}
-  if(t.id==='back'){go(idx-1);return}
-  if(t.id==='next'){
-    if(idx<cur.steps.length-1)go(idx+1);
-    else{var li=LESSONS.indexOf(cur),nl=LESSONS[li+1];nav(nl?'#'+nl.id+'-1':'#home')}
-    return;
+function mRender(){
+  var side='<div class="mh">'+icSvg('layers',26)+'<span>Overview</span></div><button class="mnav" type="button" data-mgo="overview"'+(MS==='overview'?' aria-current="true"':'')+'>'+icSvg('window',18)+'All sections</button>'+
+   SECT.map(function(s){return '<button class="mnav" type="button" data-mgo="'+s.id+'"'+(MS===s.id?' aria-current="true"':'')+'>'+icSvg(s.icon,18)+esc(secName(s))+'</button>'}).join('');
+  $('#mside').innerHTML=side;
+  var title,sub,body='',s=null,i;
+  for(i=0;i<SECT.length;i++)if(SECT[i].id===MS)s=SECT[i];
+  if(MS==='overview'||!s){title='All sections';sub='Everything in OpsLens in one place. Pick a section on the left or a card below.';body='<div class="sgrid">'+SECT.map(mCard).join('')+'</div>'}
+  else if(s.kind==='lesson'){
+    var L=lessonById(s.lesson),sv=seen[L.id]||[];
+    title=L.name;sub=L.blurb;
+    body='<ol class="msteps">'+L.steps.map(function(st,k){return '<li><button class="mstep" type="button" data-mstep="'+L.id+':'+k+'"><span class="mnum'+(sv.indexOf(k)>-1?' ok':'')+'">'+(sv.indexOf(k)>-1?'✓':(k+1))+'</span><span class="mtx"><b>'+esc(st.label)+'</b><span>'+esc(st.title)+'</span></span><span class="chipTag">'+esc(st.tag)+'</span></button></li>'}).join('')+'</ol>';
+  }else if(s.kind==='game'){
+    title='Incident Room';sub='An on-call game. Read the alert, pick your first move and beat the clock.';
+    body='<div class="mgame"><p>Best score <b>'+lsGet('best',0)+'</b> · Shifts played <b>'+lsGet('shifts',0)+'</b></p><button class="btn run" type="button" data-mgame="1">Open the Incident Room</button></div>';
+  }else if(MSVC){
+    var sv2=svcById(MSVC);title=sv2[1];sub='AWS guide';body=mSvcDetail(sv2);
+  }else{
+    title='AWS for DevOps';sub='EC2 and S3 are full interactive lessons. The rest are short guides with the ideas and commands you need first.';
+    AWSCATS.forEach(function(c){
+      var items=SVC.filter(function(x){return x[2]===c});if(!items.length)return;
+      body+='<div class="agrp"><h4>'+esc(c)+'</h4><div class="sgrid compact">'+items.map(function(x){
+        var les=!x[7].length,at=les?'data-mlesson="'+x[8]+'"':'data-msvc="'+x[0]+'"',rd=!les&&svcSeen.indexOf(x[0])>-1;
+        return '<button class="scard" type="button" '+at+'><span class="sh"><span class="sico">'+icSvg(x[3],28)+'</span><span class="sn">'+esc(x[1])+'</span><span class="badge '+(les?'les':(rd?'rd':'gd'))+'">'+(les?'Lesson':(rd?'Read':'Guide'))+'</span></span><span class="sp">'+esc(x[4])+'</span></button>';
+      }).join('')+'</div></div>';
+    });
   }
-  if(t.id==='replay'){renderStage(true);return}
-  if(t.dataset.act){cur.pg.act(getPG(cur),t.dataset.act);if(t.dataset.act!=='run')renderStage();return}
-});
-document.addEventListener('input',function(e){
-  var t=e.target;if(!t||!t.dataset||!t.dataset.k)return;
-  var k=t.dataset.k,v=t.type==='checkbox'?t.checked:Number(t.value),p=getPG(cur);
-  if(cur.id==='scaling'&&k==='failed'&&v&&p.servers<2){t.checked=false;kmsg('Add a second server first.');return}
-  cur.pg.set(p,k,v);
-  var sp=$('#v-'+k);if(sp)sp.textContent=(cur.pg.fmt&&cur.pg.fmt[k])?cur.pg.fmt[k](v):v;
-  if(cur.id==='scaling'&&k==='servers'&&v<2&&p.failed){p.failed=false;var c=$('#c-failed');if(c)c.checked=false}
-  renderStage();
+  $('#mtitle').textContent=title;$('#msub').textContent=sub;$('#mbody').innerHTML=body;$('#mbody').scrollTop=0;
+}
+document.addEventListener('click',function(e){
+  var t=e.target;
+  if(t.id==='mdl'){mClose();return}
+  t=t.closest?t.closest('button'):null;if(!t)return;
+  if(t.id==='menuBtn'){mOpen();return}
+  if(t.id==='mclose'){mClose();return}
+  if(t.dataset.mgo){MS=t.dataset.mgo;MSVC=null;mRender();return}
+  if(t.dataset.msvc){MSVC=t.dataset.msvc;if(svcSeen.indexOf(MSVC)<0){svcSeen.push(MSVC);lsSet('svcseen',svcSeen)}mRender();return}
+  if(t.dataset.mstep){var p=t.dataset.mstep.split(':');mClose();pick(p[0],parseInt(p[1],10));return}
+  if(t.dataset.mlesson){mClose();pick(t.dataset.mlesson,0);return}
+  if(t.dataset.mgame){mClose();showGame();return}
 });
 document.addEventListener('keydown',function(e){
-  if(gameOn){if(GS&&GS.state==='q'&&/^[123]$/.test(e.key)){var ob=document.querySelectorAll('.opt')[+e.key-1];if(ob)ob.click()}return}
-  if(V!=='lesson')return;var tg=e.target&&e.target.tagName;if(tg==='INPUT'&&e.target.type==='range')return;
-  if(e.key==='ArrowRight')go(idx+1);else if(e.key==='ArrowLeft')go(idx-1);
-});
+  if($('#mdl').hidden)return;
+  if(e.key==='Escape'){e.stopPropagation();mClose();return}
+  if(e.key==='Tab'){
+    var f=[].slice.call($('#mdl').querySelectorAll('button')).filter(function(b){return b.offsetParent!==null});
+    if(!f.length)return;var a=f[0],z=f[f.length-1];
+    if(e.shiftKey&&document.activeElement===a){e.preventDefault();z.focus()}
+    else if(!e.shiftKey&&document.activeElement===z){e.preventDefault();a.focus()}
+  }
+},true);
+
 window.addEventListener('hashchange',fromHash);
 fromHash();
 })();
