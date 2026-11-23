@@ -310,7 +310,7 @@ function drawScale(s){
   ps=P(1.7,9.7,0);o+=chip(ps[0],ps[1]+2,fmt(s.users)+' users');
   if(lb){
     var lp=P(4.6,5.0,0);
-    Qadd(q,4.4,3.3,plat(4.4,3.3,1.6,1.6,'run')+ibox(4.65,3.55,5,1.1,1.1,16,'blue',{glow:'rgba(63,143,208,.6)'})+bill('lb',5.2,4.1,22,40));
+    Qadd(q,4.4,3.3,plat(4.4,3.3,1.6,1.6,'run')+ibox(4.65,3.55,5,1.1,1.1,16,'blue',{glow:'rgba(63,143,208,.6)'})+bill('lb',5.2,4.1,22,40)+'<g class="fl">'+vpanel(4.2,3.4,52,2.0,34,'x','dash')+'</g>');
     o+=T(lp[0],lp[1]+18,'load balancer','lbl xs','middle')+chip(lp[0]-150,lp[1]+110,'round robin');
     if(m.failed)o+=chip(lp[0]-150,lp[1]+146,'skipping server '+n,'c-bad');
   }
@@ -758,16 +758,16 @@ function drawDocker(s){
     d+=T(30,y,t.length>21?t.slice(0,20)+'…':t,'lbl sm');
   });
   o+=pop(d);
-  var L=s.layers,stMap={'new':'blue','cached':'green','dirty':'amber'};
+  var L=s.layers,stMap={'':'blue','n':'teal','ok':'green','warn':'amber','bad':'red','pending':'grey'};
   if(L.length){
     var sp=P(3.2,5.2,0);
     o+=pipe([[4.9,5.4],[7.2,5.4],[7.2,3.4],[8.2,3.4]],s.reg?'flow':null);
     var g=plat(1.9,3.9,3,3,'idle');
-    L.forEach(function(l,k){g+=ibox(2.3,4.3,5+k*14,2.2,2.2,12,stMap[l[2]]||'metal',{glow:l[2]==='new'?'rgba(63,143,208,.5)':null})});
+    L.forEach(function(l,k){g+=ibox(2.3,4.3,5+k*14,2.2,2.2,12,stMap[l[2]]||'metal',{glow:l[2]==='n'?'rgba(255,138,31,.5)':null})});
     Qadd(q,1.9,3.9,g);
     L.forEach(function(l,k){
       var lp=P(4.5,5.4,5+k*14+6),nm=l[0].length>13?l[0].slice(0,12)+'…':l[0];
-      o+=leader(lp[0]-2,lp[1],lp[0]+10,lp[1],'#ff8a1f')+T(lp[0]+14,lp[1]+4,nm+'  '+l[1],'lbl sm');
+      o+=leader(lp[0]+22,lp[1],lp[0]+38,lp[1],'#ff8a1f')+T(lp[0]+42,lp[1]+4,nm+'  '+l[1],'lbl sm');
     });
     var topZ=5+(L.length-1)*14+12,tp=P(3.4,5.0,topZ);
     if(s.tag)o+=chip(tp[0],tp[1]-34,s.tag);
@@ -1190,7 +1190,7 @@ var lastVals={};
 function renderStage(anim){
   var sc=sceneNow();
   still=reduce||!anim;_pd=0;
-  GID=0;var _b=cur.draw(sc);$('#svg').innerHTML=isoDefs()+'<g id="flr">'+isoFloor()+'</g><g id="scn">'+_b+'</g>';fitStage();
+  var _b=cur.draw(sc);$('#svg').innerHTML=isoDefs()+'<g id="flr">'+isoFloor()+'</g><g id="scn">'+_b+'</g>';fitStage();clearTimeout(window._fit);window._fit=setTimeout(fitStage,1400);
   var ms=cur.metrics(sc);
   $('#metrics').innerHTML=ms.map(function(m){var key=cur.id+m[0],chg=lastVals[key]!==undefined&&lastVals[key]!==m[1];lastVals[key]=m[1];return '<div class="tile '+(m[2]==='n'?'':m[2])+(chg&&!reduce?' chg':'')+'"><div class="k">'+esc(m[0])+'</div><div class="v">'+esc(m[1])+'</div></div>'}).join('');
 }
@@ -1242,7 +1242,7 @@ tick();setInterval(tick,30000);
 var SHORT={kubernetes:'Kubernetes',ec2:'EC2',s3:'S3',scaling:'Scaling',pipeline:'CI/CD'};
 function renderNav2(){
   var mode=gameOn?'game':(labOn?'lab':(gpOn?'gp':''));
-  $('#lessons').innerHTML=LESSONS.map(function(L){return '<button class="tab" type="button" data-lesson="'+L.id+'"'+(L===cur&&!mode?' aria-current="true"':'')+'>'+icSvg(L.icon||'server',18)+esc(SHORT[L.id]||L.name)+'</button>'}).join('');
+  $('#lessons').innerHTML=LESSONS.map(function(L){return '<button class="tab" type="button" data-lesson="'+L.id+'"'+(L===cur&&!mode?' aria-current="true"':'')+' title="'+esc(L.name)+'">'+icSvg(L.icon||'server',18)+'<span class="tl">'+esc(SHORT[L.id]||L.name)+'</span></button>'}).join('');
   var items=[['game','firewall','Incident Room'],['lab','gear','Build Lab'],['gp','commit','Git Practice']];
   $('#pMenu').innerHTML=items.map(function(i){return '<button type="button" data-'+i[0]+'="1"'+(mode===i[0]?' aria-current="true"':'')+'>'+icSvg(i[1],18)+i[2]+'</button>'}).join('');
   var pb=$('#pBtn');pb.setAttribute('aria-current',mode?'true':'false');
@@ -1283,6 +1283,45 @@ function renderStatic(){
     return '<li class="'+(i===idx?'cur':(sv.indexOf(i)>-1?'seen':''))+'"><button type="button" data-step="'+i+'"'+(i===idx?' aria-current="step"':'')+'><span class="dot">'+(i+1)+'</span><span class="lab">'+esc(s.label)+'</span></button></li>';
   }).join('');
 }
+
+/* ---------- in-lesson practice terminals ---------- */
+var TERMS={
+ docker:{title:'Practice: Docker commands',tasks:[
+  {q:'Build an image called app:1.0 from the current folder.',re:/^docker build\s+(-t\s+app:1\.0|--tag\s+app:1\.0)\s+\.$/,out:'[+] Building 12.4s (8/8) FINISHED\n => naming to docker.io/library/app:1.0',hint:'docker build -t app:1.0 .'},
+  {q:'Run it in the background, publishing host port 8080 to container port 3000.',re:/^docker run\s+(-d\s+-p\s+8080:3000|-p\s+8080:3000\s+-d)\s+app:1\.0$/,out:'9f2c1b7a4e5d6c0b8a1f',hint:'docker run -d -p 8080:3000 app:1.0'},
+  {q:'List the running containers.',re:/^docker ps$/,out:'CONTAINER ID   IMAGE     PORTS                    STATUS\n9f2c1b7a4e5d   app:1.0   0.0.0.0:8080->3000/tcp   Up 5 seconds',hint:'docker ps'},
+  {q:'Show the logs of container 9f2c1b7a4e5d.',re:/^docker logs\s+9f2c1b7a4e5d?$/,out:'Server listening on port 3000',hint:'docker logs 9f2c1b7a4e5d'},
+  {q:'Stop that container.',re:/^docker stop\s+9f2c1b7a4e5d?$/,out:'9f2c1b7a4e5d',hint:'docker stop 9f2c1b7a4e5d'}]},
+ kubernetes:{title:'Practice: kubectl commands',tasks:[
+  {q:'Create a Deployment named web from the nginx image.',re:/^kubectl create deployment web --image(=|\s)nginx$/,out:'deployment.apps/web created',hint:'kubectl create deployment web --image=nginx'},
+  {q:'Scale it to 3 replicas.',re:/^kubectl scale deployment(\/|\s+)web\s+--replicas(=|\s)3$/,out:'deployment.apps/web scaled',hint:'kubectl scale deployment web --replicas=3'},
+  {q:'List the pods.',re:/^kubectl get pods?$/,out:'NAME            READY   STATUS    RESTARTS\nweb-6d4c-abc12  1/1     Running   0\nweb-6d4c-def34  1/1     Running   0\nweb-6d4c-ghi56  1/1     Running   0',hint:'kubectl get pods'},
+  {q:'Expose the deployment as a Service on port 80.',re:/^kubectl expose deployment web\s+--port(=|\s)80$/,out:'service/web exposed',hint:'kubectl expose deployment web --port=80'},
+  {q:'Show details of pod web-6d4c-abc12.',re:/^kubectl describe pod web-6d4c-abc12$/,out:'Name: web-6d4c-abc12\nStatus: Running\nNode: node-1\nEvents: Pulled, Created, Started',hint:'kubectl describe pod web-6d4c-abc12'}]},
+ ec2:{title:'Practice: AWS CLI and IAM',tasks:[
+  {q:'List your EC2 instances.',re:/^aws ec2 describe-instances$/,out:'{ "Reservations": [ { "Instances": [ { "InstanceId": "i-0abc123", "State": { "Name": "running" } } ] } ] }',hint:'aws ec2 describe-instances'},
+  {q:'Stop instance i-0abc123.',re:/^aws ec2 stop-instances\s+--instance-ids\s+i-0abc123$/,out:'{ "StoppingInstances": [ { "InstanceId": "i-0abc123", "CurrentState": { "Name": "stopping" } } ] }',hint:'aws ec2 stop-instances --instance-ids i-0abc123'},
+  {q:'List your IAM users.',re:/^aws iam list-users$/,out:'{ "Users": [ { "UserName": "athul" }, { "UserName": "ci-deploy" } ] }',hint:'aws iam list-users'},
+  {q:'Check who you are right now.',re:/^aws sts get-caller-identity$/,out:'{ "UserId": "AIDAEXAMPLE", "Account": "123456789012", "Arn": "arn:aws:iam::123456789012:user/athul" }',hint:'aws sts get-caller-identity'}]}
+};
+var TS={};
+function termHTML(id){
+  var T=TERMS[id];if(!T)return '';var st=TS[id]||(TS[id]={i:0,log:[]}),done=st.i>=T.tasks.length;
+  return '<div class="term" id="term" data-t="'+id+'"><div class="term-h">'+esc(T.title)+' <span>'+Math.min(st.i,T.tasks.length)+' / '+T.tasks.length+'</span></div>'+
+   '<div class="term-q">'+(done?'All done. You ran every command.':'Task '+(st.i+1)+': '+esc(T.tasks[st.i].q))+'</div>'+
+   '<pre class="term-log" id="termLog">'+st.log.map(esc).join('\n')+'</pre>'+
+   (done?'<button class="btn" type="button" id="termReset">Start again</button>':'<div class="term-r"><span aria-hidden="true">$</span><input id="termIn" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Type a command and press Enter" placeholder="type the command, then Enter"><button class="btn" type="button" id="termHint">Hint</button></div>')+'</div>';
+}
+function termRun(v){
+  var id=$('#term').dataset.t,T=TERMS[id],st=TS[id],t=T.tasks[st.i];v=v.replace(/\s+/g,' ').trim();if(!v)return;
+  st.log.push('$ '+v);
+  if(t.re.test(v)){st.log.push(t.out,'');st.i++}else st.log.push('Not quite. That is not the command for this task. Press Hint if you are stuck.','');
+  $('#term').outerHTML=termHTML(id);var l=$('#termLog');if(l)l.scrollTop=l.scrollHeight;var i=$('#termIn');if(i)i.focus();
+}
+document.addEventListener('keydown',function(e){if(e.key==='Enter'&&e.target&&e.target.id==='termIn'){e.preventDefault();termRun(e.target.value)}});
+document.addEventListener('click',function(e){var t=e.target.closest&&e.target.closest('button');if(!t)return;
+  if(t.id==='termHint'){var id=$('#term').dataset.t,st=TS[id];st.log.push('Hint: '+TERMS[id].tasks[st.i].hint,'');$('#term').outerHTML=termHTML(id);var i=$('#termIn');if(i)i.focus()}
+  if(t.id==='termReset'){var id2=$('#term').dataset.t;TS[id2]={i:0,log:[]};$('#term').outerHTML=termHTML(id2)}});
 function renderCard(){
   if(qzOn&&QZ){renderQuizCard();return}
   var st=cur.steps[idx],last=idx===cur.steps.length-1;
@@ -1292,7 +1331,7 @@ function renderCard(){
     '<div class="top"><span>STEP '+(idx+1)+' / '+cur.steps.length+'</span><span class="chipTag">'+esc(st.tag)+'</span></div>'+
     '<h2>'+esc(st.title)+'</h2><p>'+esc(st.text)+'</p>'+
     '<div class="idea"><b>Key idea</b>'+esc(st.idea)+'</div>'+
-    '<div class="ctl-box" id="ctl">'+(st.pg?cur.pg.controls(getPG(cur)):'')+'</div>'+
+    '<div class="ctl-box" id="ctl">'+(st.pg?cur.pg.controls(getPG(cur)):'')+'</div>'+(last&&TERMS[cur.id]?termHTML(cur.id):'')+
     '<div class="nav"><button class="btn" type="button" id="back"'+(idx===0?' disabled':'')+'>← Back</button><button class="btn go" type="button" id="next"><span>'+esc(nextLabel)+'</span><span aria-hidden="true">→</span></button></div>';
   var _c=$('#card');if(_c&&!reduce){_c.classList.remove('cin');void _c.offsetWidth;_c.classList.add('cin')}
 }
@@ -1390,6 +1429,119 @@ function svcById(id){for(var i=0;i<SVC.length;i++)if(SVC[i][0]===id)return SVC[i
 function svcGuides(){return SVC.filter(function(s){return s[7].length})}
 var svcSeen=lsGet('svcseen',[]);
 /* ---------- contents window: sidebar of sections, list of everything inside ---------- */
+
+/* ---------- Networking lesson ---------- */
+var NETM=[['DNS lookup','UDP 53','no','0'],['TCP handshake','TCP 443','no','1.5'],['HTTP request','TCP 80','no','2'],['TLS encryption','TCP 443','yes','3'],['Firewall rule','TCP 22','yes','3'],['Full trip','TCP 443','yes','3']];
+function netMetrics(s){var m=NETM[s.k];return [['Stage',m[0],'ok'],['Port',m[1],s.k===4?'bad':'ok'],['Encrypted',m[2],m[2]==='yes'?'ok':'warn'],['Round trips',m[3],'ok']]}
+function drawNet(s){
+  IOY=70;var o='',q=Qnew(),k=s.k;
+  var cp=P(1.7,8.4,0),sp=P(10.1,8.4,0),dp=P(5.1,3.4,0);
+  Qadd(q,0,4,plat(0,4,3.4,3.4,'idle')+'<g>'+ic('user',P(1,4.8,5)[0]-22,P(1,4.8,5)[1]-60,44)+'</g>');
+  o+=T(cp[0],cp[1]+4,'your browser','lbl xs','middle');
+  Qadd(q,4,0,plat(4,0,2.2,2.2,k===0?'run':'idle')+bill('cloud',5.1,1.1,6,50));
+  o+=T(dp[0],dp[1]+4,'DNS server','lbl xs','middle');
+  Qadd(q,8.4,4,plat(8.4,4,3.4,3.4,k===4?'bad':'ok')+rack(9.1,4.6,k===4?'hot':'ok'));
+  o+=T(sp[0],sp[1]+4,'web server','lbl xs','middle');
+  var A=[[3.4,5.7],[8.4,5.7]],Ar=[[8.4,5.7],[3.4,5.7]],D=[[1.7,4],[1.7,1.1],[4,1.1]],Dr=[[4,1.1],[1.7,1.1],[1.7,4]];
+  o+=pipe(A,k>=1&&k!==4?'flow':null)+pipe(D,k===0?'flow':null);
+  if(k===0){o+=packet(pipeD(D),2,0,'c-req')+packet(pipeD(Dr),2,1,'c-res')+chip(dp[0]+40,dp[1]-110,'shop.example.com → 203.0.113.7')}
+  if(k===1){o+=packet(pipeD(A),1.6,0,'c-req')+packet(pipeD(Ar),1.6,.5,'c-res')+packet(pipeD(A),1.6,1,'c-req');o+=chip(330,30,'SYN → SYN-ACK → ACK')}
+  if(k===2){o+=packet(pipeD(A),2,0,'c-req')+packet(pipeD(Ar),2,1,'c-res');o+=chip(330,30,'GET /index.html → 200 OK')}
+  if(k===3||k===5){o+=packet(pipeD(A),2,0,'c-req')+packet(pipeD(Ar),2,1,'c-res');o+=chip(330,30,k===5?'DNS → TCP → TLS → HTTP':'certificate checked, keys agreed')}
+  if(k===4){o+=pipe(A,'dead')+chip(330,30,'port 22 blocked, 443 open','c-bad');var fp=P(7.2,5.7,22);o+=chip(fp[0],fp[1]-20,'firewall','c-bad')+packet(pipeD([[3.4,5.7],[7.2,5.7]]),2,0,'c-slow')}
+  return o+Qflush(q);
+}
+LESSONS.push({
+  id:'network',icon:'cloud',parts:[["user", {}, "Browser", "The client that starts every request."], ["cloud", {}, "DNS", "Turns a name into an IP address."], ["server", {}, "Server", "Answers on a port, such as 443."], ["firewall", {}, "Firewall", "Allows or blocks traffic by port."]],name:'Networking',
+  blurb:'Follow one web request from the browser: name lookup, connection, encryption, the HTTP exchange and the firewall rules that decide what gets through.',
+  legend:[['c-req','request'],['c-res','response'],['c-slow','blocked'],['c-bad','denied']],
+  draw:drawNet,metrics:netMetrics,
+  steps:[
+   {label:'DNS',tag:'NAME',title:'First, turn the name into an address',
+    text:'Computers route by IP address, not by name. Your browser asks a DNS server where shop.example.com lives and gets back an IP such as 203.0.113.7. The answer is cached so the next lookup is instant.',
+    idea:'DNS is a phone book. If DNS fails, the site looks down even though the server is fine.',scene:{k:0}},
+   {label:'TCP',tag:'CONNECT',title:'Then open a connection',
+    text:'TCP sets up a reliable connection with three messages: SYN, SYN-ACK, ACK. Only after that handshake can data flow. Each round trip costs real time, which is why distance matters.',
+    idea:'A port picks the service on the machine. 80 is HTTP, 443 is HTTPS, 22 is SSH.',scene:{k:1}},
+   {label:'HTTP',tag:'REQUEST',title:'Send the HTTP request',
+    text:'The browser sends a request such as GET /index.html. The server answers with a status code and the content. 200 means OK, 404 not found, 500 a server error.',
+    idea:'HTTP is plain text on its own. Anyone on the path could read it.',scene:{k:2}},
+   {label:'TLS',tag:'SECURE',title:'TLS encrypts the conversation',
+    text:'HTTPS wraps HTTP in TLS. The server proves who it is with a certificate, both sides agree on keys, and everything after that is encrypted. That is the padlock in the address bar.',
+    idea:'A certificate proves identity. Encryption keeps the contents private.',scene:{k:3}},
+   {label:'Firewall',tag:'BLOCK',title:'Firewalls allow or deny by port',
+    text:'A firewall or cloud security group lists which ports and sources are allowed. Open 443 to the world, but keep 22 (SSH) limited to your own IP. Anything not allowed is dropped silently, which looks like a timeout.',
+    idea:'Default deny. Open only the ports you need, to the sources that need them.',scene:{k:4}},
+   {label:'Whole trip',tag:'RECAP',title:'The whole trip, end to end',
+    text:'DNS finds the address, TCP opens the connection, TLS secures it, HTTP carries the request and response, and the firewall allowed it all on port 443. When something breaks, check these layers in order.',
+    idea:'Debug in order: DNS, connection, firewall, TLS, then the application.',scene:{k:5}}
+  ]
+});
+
+/* ---------- Terraform lesson ---------- */
+function tfMetrics(s){var m=[['write','0','0','0'],['init','0','0','0'],['plan','3','0','0'],['apply','3','0','0'],['change','1','1','0'],['destroy','0','0','3']][s.k];return [['Command',['write','init','plan','apply','apply','destroy'][s.k],'ok'],['To add',m[1],'ok'],['To change',m[2],s.k===4?'warn':'ok'],['To destroy',m[3],s.k===5?'bad':'ok']]}
+function drawTF(s){
+  IOY=70;var o='',q=Qnew(),k=s.k,cp=P(1.7,8.4,0),rp=P(9.6,8.4,0),i;
+  Qadd(q,0,4,plat(0,4,3.4,3.4,k<3?'run':'idle')+vpanel(0.3,4.5,6,2.6,36,'x','list'));
+  o+=T(cp[0],cp[1]+4,'main.tf','lbl xs','middle');
+  Qadd(q,8,3.6,plat(8,3.6,3.6,4,k>=3&&k<5?'ok':'idle'));
+  var n=k>=3&&k<5?3:0;
+  var kinds=['rack','cloud','disk'];
+  for(i=0;i<n;i++){var y=3.9+i*1.2;Qadd(q,8.4,y,ibox(8.5,y,5,2.6,0.9,12,i===1&&k===4?'amber':'teal',{glow:'rgba(255,138,31,.45)'}))}
+  if(k===2)for(i=0;i<3;i++){var y2=3.9+i*1.2;Qadd(q,8.4,y2,ibox(8.5,y2,5,2.6,0.9,12,'grey',{op:.45}))}
+  if(k===5)o+=chip(rp[0]-60,rp[1]-130,'3 resources removed','c-bad');
+  o+=T(rp[0],rp[1]+4,'cloud account','lbl xs','middle');
+  var A=[[3.4,5.7],[8,5.7]];o+=pipe(A,k>=2&&k<=4?'flow':(k===5?'dead':null));
+  if(k===2||k===3)o+=packet(pipeD(A),2,0,'c-req');
+  var tx=['Terraform reads .tf files','terraform init downloads the provider','Plan: 3 to add, 0 to change, 0 to destroy','Apply complete! 3 added','Plan: 0 to add, 1 to change','Destroy complete! 3 destroyed'];
+  o+=chip(330,30,tx[k]);
+  return o+Qflush(q);
+}
+LESSONS.push({
+  id:'terraform',icon:'gear',parts:[["file", {"t": "doc"}, "Config", "Files that describe the infrastructure you want."], ["gear", {}, "Provider", "The plugin that talks to a cloud API."], ["clipboard", {}, "Plan", "A preview of what will change."], ["cloud", {}, "State", "Terraform's record of what it created."]],name:'Terraform',
+  blurb:'Describe infrastructure in code, preview the changes and apply them. See init, plan, apply, drift and destroy with a small cloud account.',
+  legend:[['c-req','api call'],['c-res','response'],['c-bad','removed']],
+  draw:drawTF,metrics:tfMetrics,
+  steps:[
+   {label:'Write',tag:'CODE',title:'Describe what you want',text:'In Terraform you write what the end result should be: three resources, say a server, a bucket and a network. You do not write the steps to create them. The files are plain text, so they live in Git like any code.',idea:'Declarative means you state the goal and the tool works out the steps.',scene:{k:0}},
+   {label:'Init',tag:'SETUP',title:'terraform init downloads providers',text:'A provider is a plugin that knows one platform, such as AWS. init downloads the providers your config needs and prepares the working folder. You run it once per project and again when providers change.',idea:'No provider, no way to talk to the cloud.',scene:{k:1}},
+   {label:'Plan',tag:'PREVIEW',title:'terraform plan shows the change first',text:'Plan compares your files with the state and the real cloud, then lists what it would add, change or destroy. Nothing is touched yet. Read the plan like a code review.',idea:'Always read the plan. The destroy count is the number to watch.',scene:{k:2}},
+   {label:'Apply',tag:'BUILD',title:'terraform apply makes it real',text:'Apply runs the plan. Terraform calls the cloud API, creates the three resources and records them in the state file. Resources that do not depend on each other are created in parallel.',idea:'State maps your code to real resources. Protect it and store it remotely for teams.',scene:{k:3}},
+   {label:'Change',tag:'UPDATE',title:'Edit the code, plan again',text:'Change one setting in the file and run plan again. Terraform shows only the difference: one resource to change, the others untouched. If someone edited the cloud by hand, plan also reveals that drift.',idea:'Fix drift by changing the code, not the console.',scene:{k:4}},
+   {label:'Destroy',tag:'CLEAN UP',title:'terraform destroy removes everything',text:'Destroy deletes every resource tracked in the state. It is perfect for lab environments you do not want to keep paying for, and dangerous in production.',idea:'Use workspaces or separate state so a lab destroy can never touch production.',scene:{k:5}}
+  ]
+});
+
+/* ---------- Monitoring lesson ---------- */
+function monMetrics(s){var v=[['Error rate','0.2%','ok'],['Error rate','0.2%','ok'],['Error rate','6%','bad'],['Error rate','6%','bad'],['Error rate','0.3%','ok']][s.k];return [v,['Latency p95',s.k>=2&&s.k<4?'2.4 s':'180 ms',s.k>=2&&s.k<4?'bad':'ok'],['Alert',s.k===2||s.k===3?'firing':'quiet',s.k===2||s.k===3?'bad':'ok'],['Logs / min',s.k>=1?'1.2k':'0','ok']]}
+function drawMon(s){
+  IOY=70;var o='',q=Qnew(),k=s.k,ap=P(1.7,8.4,0),mp=P(5.1,3.4,0),op=P(9.8,8.4,0),bad=k===2||k===3;
+  Qadd(q,0,4,plat(0,4,3.4,3.4,bad?'bad':'ok')+rack(0.7,4.6,bad?'hot':'ok'));
+  o+=T(ap[0],ap[1]+4,'your app','lbl xs','middle');
+  Qadd(q,4,0,plat(4,0,2.6,2.2,'run')+vpanel(4.2,0.4,6,2.1,40,'x','dash'));
+  o+=T(mp[0],mp[1]+4,'dashboards','lbl xs','middle');
+  Qadd(q,8.4,4,plat(8.4,4,3.4,3.4,bad?'wait':'idle')+bill('firewall',9.6,5.2,8,44));
+  o+=T(op[0],op[1]+4,'on-call','lbl xs','middle');
+  var A=[[1.7,4],[1.7,1.1],[4,1.1]],B=[[3.4,5.7],[8.4,5.7]];
+  o+=pipe(A,k>=1?'flow':null);if(k>=1)o+=packet(pipeD(A),1.8,0,bad?'c-slow':'c-req');
+  o+=pipe(B,bad?'flow':null);if(bad)o+=packet(pipeD(B),1.6,0,'c-bad');
+  var tx=['Nothing is measured yet','Metrics and logs flow to dashboards','Error rate 6% for 5 minutes → alert fires','On-call gets paged, reads the dashboard','Rollback done, error rate back to 0.3%'];
+  o+=chip(330,30,tx[k],bad?'c-bad':null);
+  return o+Qflush(q);
+}
+LESSONS.push({
+  id:'monitoring',icon:'clock',parts:[["server", {}, "Metrics", "Numbers over time, such as error rate and latency."], ["file", {"t": "doc"}, "Logs", "Text records of what happened."], ["window", {}, "Dashboard", "One screen that shows health."], ["firewall", {}, "Alert", "A page when a rule is broken."]],name:'Monitoring',
+  blurb:'Learn what to measure, how metrics, logs and dashboards fit together, and how a good alert reaches the right person before users complain.',
+  legend:[['c-req','metrics and logs'],['c-slow','degraded'],['c-bad','alert']],
+  draw:drawMon,metrics:monMetrics,
+  steps:[
+   {label:'Blind',tag:'PROBLEM',title:'Without monitoring you find out from users',text:'An app can be slow or failing for hours before anyone on the team notices. Monitoring is how you find out first, and how you prove the fix worked.',idea:'You cannot fix what you cannot see.',scene:{k:0}},
+   {label:'Signals',tag:'COLLECT',title:'Collect metrics and logs',text:'Metrics are numbers sampled over time: requests, errors, latency, CPU. Logs are the detailed text of individual events. Metrics tell you something is wrong, logs help explain why.',idea:'Start with the four golden signals: latency, traffic, errors and saturation.',scene:{k:1}},
+   {label:'Alert',tag:'DETECT',title:'An alert fires on a symptom',text:'The error rate jumps to 6% and stays there for five minutes, so a rule fires. Good alerts watch what users feel, such as errors and slowness, instead of every CPU spike.',idea:'Alert on symptoms, not causes. Every alert should need a human action.',scene:{k:2}},
+   {label:'Respond',tag:'ACT',title:'On-call reads the dashboard',text:'The page reaches whoever is on call. They open the dashboard, see that errors began right after a release, and check the logs for the failing endpoint.',idea:'Dashboards answer "what changed?" in seconds when they are built around the same signals as the alerts.',scene:{k:3}},
+   {label:'Recover',tag:'FIX',title:'Roll back and confirm',text:'Rolling back the release brings the error rate back to normal. The graph is the proof. Afterwards the team writes down what happened and adds a missing alert or test.',idea:'Measure time to detect and time to recover. Both should shrink over time.',scene:{k:4}}
+  ]
+});
 var SECT=[
  {id:'git',kind:'lesson',lesson:'git',tag:'Code',icon:'branch'},
  {id:'docker',kind:'lesson',lesson:'docker',tag:'Containers',icon:'container'},
@@ -1397,6 +1549,9 @@ var SECT=[
  {id:'aws',kind:'aws',name:'AWS',tag:'Cloud',icon:'cloud'},
  {id:'scaling',kind:'lesson',lesson:'scaling',tag:'Architecture',icon:'lb'},
  {id:'pipeline',kind:'lesson',lesson:'pipeline',tag:'Delivery',icon:'rocket'},
+ {id:'network',kind:'lesson',lesson:'network',tag:'Foundations',icon:'cloud'},
+ {id:'terraform',kind:'lesson',lesson:'terraform',tag:'Infrastructure',icon:'gear'},
+ {id:'monitoring',kind:'lesson',lesson:'monitoring',tag:'Operations',icon:'clock'},
  {id:'game',kind:'game',name:'Incident Room',tag:'Play',icon:'firewall'},
  {id:'lab',kind:'lab',name:'Build Lab',tag:'Practice',icon:'gear'},
  {id:'gp',kind:'gp',name:'Git Practice',tag:'Practice',icon:'commit'}
@@ -2046,6 +2201,9 @@ function nav(h){if(location.hash===h)fromHash();else location.hash=h}
 /* ---------- landing page, quick checks, completion, notes, tour ---------- */
 var hmOn=false;(function(){var t=lsGet("theme",null);if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');isoTheme()}})();var qzOn=false,QZ=null,tourI=0;
 var QUIZ={
+terraform:[["Which command shows what will change without changing anything?",["terraform plan","terraform apply","terraform init","terraform fmt"],0,"plan previews the add, change and destroy counts. Nothing is touched."],["What does the state file record?",["Your passwords","Which real resources Terraform created","The Git history","Server logs"],1,"State maps your code to the real resources it manages."],["Someone edits a resource by hand in the console. What reveals it?",["Nothing","terraform plan shows drift","terraform init","The next Git commit"],1,"Plan compares code, state and the real cloud, so drift appears as a change."]],
+monitoring:[["Which alert is the better one?",["CPU above 70% for 1 minute","Error rate above 5% for 5 minutes","Disk reads increased","Memory changed"],1,"Alert on a symptom users feel and sustain it long enough to avoid noise."],["What do logs give you that metrics usually do not?",["Detail about individual events","A smaller bill","Faster pages","Encryption"],0,"Metrics show that something is wrong. Logs explain the specific event."],["Which is one of the four golden signals?",["Colour","Saturation","Font size","Branch name"],1,"Latency, traffic, errors and saturation."]],
+network:[["Which service turns shop.example.com into an IP address?",["DNS","DHCP","TLS","SSH"],0,"DNS maps names to IP addresses."],["Which port does HTTPS use by default?",["22","80","443","53"],2,"HTTPS uses TCP port 443. 80 is HTTP and 22 is SSH."],["A firewall silently drops a connection. What does the user usually see?",["A 404 page","A timeout","A certificate warning","A redirect"],1,"Dropped packets get no reply, so the client waits and times out."]],
 git:[["Where does git add put your changes?",["Working directory","Staging area","Remote repository","Stash"],1,"git add copies the chosen changes into the staging area, ready for the next commit."],["Which command shares your local commits with the remote?",["git commit","git push","git add","git merge"],1,"git push uploads your local commits to the remote, for example GitHub."],["You pushed a bad commit. What is the safest way to undo it without rewriting shared history?",["git reset --hard","git revert","Delete the .git folder","git stash"],1,"git revert adds a new commit that undoes the old one, so history that others have stays intact."]],
 docker:[["Why does a Dockerfile copy package.json before the rest of the source code?",["So the dependency layer stays cached when only code changes","Because Docker needs files in alphabetical order","To make the image half the size","To skip the build step"],0,"Layers are cached top to bottom. Dependencies change rarely, so putting them first lets Docker reuse them."],["What is the difference between an image and a container?",["An image runs, a container is a file","An image is a read-only template, a container is a running instance of it","They are the same thing","A container is stored in a registry, an image is not"],1,"You build an image once and can start many containers from it."],["Data written inside a container is lost when the container is removed. How do you keep it?",["Use a volume","Use a bigger image","Run it as root","Add more layers"],0,"A volume lives outside the container, so the data survives restarts and removal."]],
 kubernetes:[["You ask for 3 replicas and one pod crashes. What does Kubernetes do?",["Waits for you to fix it","Starts a replacement pod to get back to 3","Deletes the Deployment","Stops the other two pods"],1,"Kubernetes keeps comparing desired state with reality and fixes the difference."],["Which part compares the desired state with the actual state?",["The control plane","The container registry","A volume","The image"],0,"Controllers in the control plane run this loop all the time."],["Why spread replicas across different nodes?",["One failed machine does not take the whole app down","To use more disk space","To make each pod faster","So you do not need a load balancer"],0,"If every replica is on one node, losing that node loses the app."]],
@@ -2172,7 +2330,7 @@ function renderHome(){
     secCard('data-gp="1"','commit','Practice','Git Practice','A safe practice repo. Type real git commands and watch the commit graph change.','6 missions',null)].join('');
   $('#home').innerHTML='<div class="hero"><div class="hero-l"><span class="eyebrow">Interactive DevOps study lab</span><h1>Learn DevOps by watching it work</h1><p>Animated 3D diagrams, hands-on labs and short quizzes for Git, Docker, Kubernetes and AWS. Free, in your browser, no sign-up.</p><div class="hero-cta">'+cta+'<button class="btn" type="button" data-tour="1">Take the tour</button></div>'+
     '<ul class="hero-stats"><li><b>'+LESSONS.length+'</b> lessons</li><li><b>'+tot+'</b> steps</li><li><b>'+svcGuides().length+'</b> AWS guides</li><li><b>3</b> practice labs</li></ul></div><div class="hero-r">'+heroArt()+'</div></div>'+
-    '<h2 class="hh">Learn</h2><div class="sgrid">'+learn+'</div><h2 class="hh">Practice</h2><div class="sgrid">'+prac+'</div>'+
+    '<h2 class="hh">Learn</h2>'+(function(){var k=Object.keys(dn).length,pf=0;Object.keys(dn).forEach(function(x){if(dn[x]===3)pf++});return '<div class="hprog" aria-label="Quiz progress"><div class="hbar"><i style="width:'+Math.round(k/LESSONS.length*100)+'%"></i></div><span>'+k+' of '+LESSONS.length+' quizzes done'+(pf?' · '+pf+' perfect':'')+'</span></div>'})()+'<div class="sgrid">'+learn+'</div><h2 class="hh">Practice</h2><div class="sgrid">'+prac+'</div>'+
     '<h2 class="hh">How it works</h2><div class="how"><div><b>1 · Watch</b><p>Every step has an animated 3D diagram showing what really happens, with plain-language labels.</p></div><div><b>2 · Try</b><p>Use the controls, break things, and build your own setups in the practice labs.</p></div><div><b>3 · Check</b><p>Finish each lesson with a short quiz, then download your notes.</p></div></div>';
 }
 function countUp(){
@@ -2198,13 +2356,13 @@ function showHome(fromH){
 }
 function hideHome(){if(!hmOn)return;hmOn=false;$('.app').classList.remove('hm')}
 /* ----- quick check ----- */
-function startQuiz(){qzOn=true;QZ={id:cur.id,i:0,score:0,sel:null,done:false};renderCard();var c=$('#card');if(c&&c.scrollIntoView&&window.innerWidth<1100)c.scrollIntoView({behavior:'smooth',block:'start'})}
+function startQuiz(){qzOn=true;QZ={id:cur.id,i:0,score:0,sel:null,done:false,miss:[]};renderCard();var c=$('#card');if(c&&c.scrollIntoView&&window.innerWidth<1100)c.scrollIntoView({behavior:'smooth',block:'start'})}
 function renderQuizCard(){
   var q=QUIZ[QZ.id],n=q.length,L=lessonById(QZ.id),h;
   if(QZ.done){
     var li=LESSONS.indexOf(L),nl=LESSONS[li+1],sv=(seen[L.id]||[]).length;
     $('#card').innerHTML='<div class="top"><span>LESSON COMPLETE</span><span class="chipTag">QUIZ '+QZ.score+'/'+n+'</span></div><h2>'+esc(L.name)+' done</h2><p>You scored <b>'+QZ.score+' of '+n+'</b> on the quick check and visited '+sv+' of '+L.steps.length+' steps. '+(QZ.score===n?'Perfect.':'Review any step from the list below the diagram, then retake it.')+'</p>'+
-     '<div class="nav done"><button class="btn go" type="button" id="qnextL"><span>'+(nl?'Next lesson: '+esc(nl.name):'Back to the home page')+'</span><span aria-hidden="true">→</span></button></div>'+
+     (QZ.miss&&QZ.miss.length?'<div class="idea"><b>Review what you missed</b>'+QZ.miss.map(function(i){var x=q[i];return '<p><b>'+esc(x[0])+'</b><br>Answer: '+esc(x[1][x[2]])+'. '+esc(x[3])+'</p>'}).join('')+'</div>':'')+'<div class="nav done"><button class="btn go" type="button" id="qnextL"><span>'+(nl?'Next lesson: '+esc(nl.name):'Back to the home page')+'</span><span aria-hidden="true">→</span></button></div>'+
      '<div class="lrow"><button class="btn" type="button" data-notes="md">Download notes</button><button class="btn" type="button" data-notes="print">Print or save as PDF</button><button class="btn" type="button" id="qretry">Retake quiz</button></div>';
     return;
   }
@@ -2236,7 +2394,7 @@ function notesDownload(L){
 }
 function notesPrint(L){$('#printdoc').innerHTML=notesHTML(L);try{window.print()}catch(e){}}
 /* ----- tour ----- */
-var TOUR=[["Welcome to OpsLens","Seven interactive lessons, three practice labs and 24 AWS guides. Everything runs in your browser, and your progress is saved there."],["Pick a lesson","The tabs at the top open a lesson. Each one has an animated 3D diagram, short step cards, and a quick check at the end."],["Practice what you learn","The Practice menu has the Incident Room game, the Build Lab for designing your own infrastructure, and a Git Practice terminal."],["Find anything fast","The Sections button opens a window listing every lesson, step and AWS guide, with your progress."]];
+var TOUR=[["Welcome to OpsLens","Ten interactive lessons, three practice labs and 24 AWS guides. Everything runs in your browser, and your progress is saved there."],["Pick a lesson","The tabs at the top open a lesson. Each one has an animated 3D diagram, short step cards, and a quick check at the end."],["Practice what you learn","The Practice menu has the Incident Room game, the Build Lab for designing your own infrastructure, and a Git Practice terminal."],["Find anything fast","The Sections button opens a window listing every lesson, step and AWS guide, with your progress."]];
 function tourOpen(){
   var t=$('#tour');if(!t){t=document.createElement('div');t.id='tour';t.className='mdl';t.setAttribute('role','dialog');t.setAttribute('aria-modal','true');t.setAttribute('aria-labelledby','tourT');$('.app').appendChild(t)}
   tourI=0;t.hidden=false;tourRender();
@@ -2254,7 +2412,7 @@ document.addEventListener('click',function(e){
   if(d.resume){var r=lsGet('resume',null);if(r)pick(r.id,r.idx);return}
   if(d.maws){mOpen();MS='aws';MSVC=null;mRender();return}
   if(d.tour){tourOpen();return}
-  if(d.qopt!=null&&QZ&&QZ.sel==null){var k=parseInt(d.qopt,10);QZ.sel=k;if(k===QUIZ[QZ.id][QZ.i][2])QZ.score++;renderCard();return}
+  if(d.qopt!=null&&QZ&&QZ.sel==null){var k=parseInt(d.qopt,10);QZ.sel=k;if(k===QUIZ[QZ.id][QZ.i][2])QZ.score++;else QZ.miss.push(QZ.i);renderCard();return}
   if(t.id==='qnext'){if(QZ.i===QUIZ[QZ.id].length-1){QZ.done=true;var dn=lessonDone();dn[QZ.id]=QZ.score;lsSet('done',dn)}else{QZ.i++;QZ.sel=null}renderCard();return}
   if(t.id==='qback'){qzOn=false;go(cur.steps.length-1);return}
   if(t.id==='qretry'){startQuiz();return}

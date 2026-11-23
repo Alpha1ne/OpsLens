@@ -1,7 +1,41 @@
 # OpsLens
 
-Animated, interactive lessons on Git, Docker, Kubernetes, AWS EC2 and S3, scaling and CI/CD, plus the Incident Room on-call game, a Build Lab, a Git Practice terminal, 24 AWS service guides, quick-check quizzes, downloadable notes, a landing page with resume, and light and dark themes.
-It is a plain static site: no build step, no dependencies, no secrets.
+**Learn DevOps by watching it work.** An interactive study site with animated 3D diagrams for Git, Docker, Kubernetes, AWS and CI/CD. Live demo: https://opslens-nine.vercel.app/
+
+![Home page](docs/home.png)
+
+## What it has
+
+| Feature | Details |
+|---|---|
+| 10 lessons, 71 steps | Git, Docker, Kubernetes, EC2, S3, Scaling, CI/CD, Networking, Terraform, Monitoring. Each step has a diagram that animates what really happens. |
+| Practice terminals | Type real docker, kubectl and AWS CLI commands at the end of those lessons and get checked answers and hints. |
+| Quick-check quizzes | Three questions per lesson, with a "review what you missed" summary and a progress bar on the home page. |
+| Incident Room | An on-call game: read the alert, pick your first move, beat the clock. |
+| Build Lab | Place infrastructure, send traffic through it and see latency and cost. |
+| Git Practice | Type real git commands in a safe repo and watch the commit graph change. |
+| 24 AWS guides | Short guides to services such as Lambda, EKS and DynamoDB. |
+| Study notes | Download any lesson as Markdown or print it to PDF. |
+| Themes | Matte clay light theme and a dark theme, saved in the browser. |
+
+![Docker lesson](docs/docker-4.png)
+![Scaling lesson](docs/scaling-5.png)
+
+## How it is built
+
+- Plain HTML, CSS and JavaScript. No framework, no build step, no dependencies.
+- Every diagram is inline SVG drawn by a small isometric toolkit (boxes, platforms, pipes, packets) with SMIL animation.
+- Strict Content-Security-Policy with no inline scripts, plus HSTS and other headers set in `vercel.json`.
+- Respects `prefers-reduced-motion`, works at phone width, keyboard accessible.
+- Progress is stored only in the browser (`localStorage`). No accounts, no tracking.
+
+## What I learned
+
+- How Git staging, branches and remotes fit together, and how to explain them visually.
+- How Docker layers and caching work, and how containers differ from images.
+- Load balancing, failure handling and N+1 capacity planning.
+- Hardening a static site on Vercel: CSP, caching with version strings, header checks.
+- Debugging SVG at scale (for example, duplicate gradient IDs silently washing out colours).
 
 ## Files
 
