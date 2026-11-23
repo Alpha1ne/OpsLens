@@ -658,6 +658,9 @@ h1,h2,h3,.kpi b,.kpis *{text-shadow:none!important}
 :root:not([data-theme=dark]) .gpg{--ink:#2a2f37;--muted:#69727e}
 :root:not([data-theme=dark]) .gpg svg text{stroke:none!important}
 /* ===== 3D icons, motion ===== */
+svg polygon,svg path{stroke-linejoin:round}
+:root:not([data-theme=dark]) .hero-r{background:none!important;box-shadow:none!important;padding:0}
+.hero{grid-template-columns:minmax(0,.9fr) minmax(0,1.2fr)}
 .ib *{fill:#a9b2be!important;stroke:#8e99a7!important;filter:none!important}
 .ih *{fill:none!important;stroke:#ffffff!important;stroke-opacity:.95;filter:none!important}
 @keyframes glowp{0%,100%{opacity:.22}50%{opacity:.65}}
@@ -688,7 +691,7 @@ h1,h2,h3,.kpi b,.kpis *{text-shadow:none!important}
 :root:not([data-theme=dark]) .i .f-ok{fill:url(#gO)}
 :root:not([data-theme=dark]) .i .f-bad{fill:url(#gR)}
 :root:not([data-theme=dark]) .i .f-wait{fill:url(#gY)}
-:root:not([data-theme=dark]) .i{stroke:#5b6572;stroke-linejoin:round;stroke-linecap:round;filter:drop-shadow(0 2.5px 2px rgba(40,50,65,.3))}
+:root:not([data-theme=dark]) .i{filter:drop-shadow(0 3px 2.5px rgba(40,50,65,.32))}
 :root:not([data-theme=dark]) .sico,:root:not([data-theme=dark]) .icon{background:linear-gradient(160deg,#fff,#e9edf1);box-shadow:0 12px 18px -10px rgba(40,50,65,.42),0 2px 0 #fff inset,0 -4px 8px rgba(40,50,65,.07) inset}
 :root:not([data-theme=dark]) .sico .i{filter:drop-shadow(0 3px 2px rgba(40,50,65,.32))}
 :root:not([data-theme=dark]) svg .pk.c-req{filter:drop-shadow(0 0 3px rgba(255,138,31,.9))!important}
