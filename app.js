@@ -2301,7 +2301,7 @@ function heroClay(){
   return '<svg viewBox="30 -40 560 410" role="img" aria-label="Illustration: a connected platform of servers, dashboards and automation around a central hub">'+s+'</svg>';
 }
 
-function heroArt(){return ISOK.clay?heroClay():heroArtOld()}
+function heroArt(){return heroClay()}
 function heroArtOld(){
   var s,q,saveY=IOY;IOY=58;q=Qnew();
   Qadd(q,0,0,plat(0,0,3,3,'ok')+rack(0.8,0.8,'ok',{h:40}));
