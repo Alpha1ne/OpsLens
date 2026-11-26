@@ -15,6 +15,7 @@
 | Build Lab | Place infrastructure, send traffic through it and see latency and cost. |
 | Git Practice | Type real git commands in a safe repo and watch the commit graph change. |
 | 24 AWS guides | Short guides to services such as Lambda, EKS and DynamoDB. |
+| 20 Linux guides | Basics, networking, troubleshooting (disk full, slow server, service will not start, cannot connect), hardening and spotting suspicious activity. Command tables and a common-problems table for each. |
 | Study notes | Download any lesson as Markdown or print it to PDF. |
 | Themes | Matte clay light theme and a dark theme, saved in the browser. |
 
