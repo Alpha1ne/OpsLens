@@ -8,7 +8,7 @@
 
 | Feature | Details |
 |---|---|
-| 10 lessons, 71 steps | Git, Docker, Kubernetes, EC2, S3, Scaling, CI/CD, Networking, Terraform, Monitoring. Each step has a diagram that animates what really happens. |
+| 12 lessons, 83 steps | Git, Docker, Kubernetes, EC2, S3, Scaling, CI/CD, Networking, Terraform, Monitoring, IAM and least privilege, Linux basics. Each step has a diagram that animates what really happens. |
 | Practice terminals | Type real docker, kubectl and AWS CLI commands at the end of those lessons and get checked answers and hints. |
 | Quick-check quizzes | Three questions per lesson, with a "review what you missed" summary and a progress bar on the home page. |
 | Incident Room | An on-call game: read the alert, pick your first move, beat the clock. |

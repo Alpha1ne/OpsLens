@@ -577,7 +577,7 @@ h1,h2,h3,.kpi b,.kpis *{text-shadow:none!important}
 /* ===== Clay theme: white matte surfaces, orange accent (default). Dark theme = [data-theme=dark] ===== */
 .themebtn{border-radius:999px;padding:8px 12px;min-height:40px;line-height:1;cursor:pointer}
 :root:not([data-theme=dark]){color-scheme:light;
- --bg:#eceff2;--grid:#d9dee3;--surface:#ffffff;--pad:#f1f3f5;--ink:#2a2f37;--muted:#69727e;--line:#e0e4e9;--shadow:rgba(40,50,65,.12);
+ --bg:#eceff2;--grid:#d9dee3;--surface:#ffffff;--pad:#f1f3f5;--ink:#2a2f37;--muted:#566070;--line:#e0e4e9;--shadow:rgba(40,50,65,.12);
  --neon:#f47a12;--req:#ff8a1f;--res:#3b4350;--slow:#d9822b;--queue:#b98f1c;--bad:#d6454f;
  --okbg:#fff1e1;--runbg:#eef2f6;--badbg:#fde7e9;--waitbg:#fff6d9;--termbg:#1c2026;--termfg:#e8edf2;--focus:#f47a12}
 :root:not([data-theme=dark]) body{background:radial-gradient(1100px 560px at 70% -12%,#fff,transparent 62%),linear-gradient(180deg,#f3f5f7,#e5e8ec);color:var(--ink)}
@@ -594,26 +594,26 @@ h1,h2,h3,.kpi b,.kpis *{text-shadow:none!important}
 :root:not([data-theme=dark]) .tab,:root:not([data-theme=dark]) .btn,:root:not([data-theme=dark]) .opt,:root:not([data-theme=dark]) .themebtn,:root:not([data-theme=dark]) .pmenu-list,:root:not([data-theme=dark]) .mclose,:root:not([data-theme=dark]) .who{background:#fff;border:1px solid #e3e7ec;color:var(--ink);box-shadow:0 5px 12px -6px rgba(40,50,65,.25)}
 :root:not([data-theme=dark]) .tab:hover,:root:not([data-theme=dark]) .btn:hover:not(:disabled){border-color:var(--neon);box-shadow:0 6px 16px -6px rgba(244,122,18,.4)}
 :root:not([data-theme=dark]) .tab[aria-current=true]{background:#fff;border-color:var(--neon);color:var(--ink);box-shadow:0 0 0 3px rgba(244,122,18,.16),0 6px 14px -6px rgba(244,122,18,.5)}
-:root:not([data-theme=dark]) .btn.go,:root:not([data-theme=dark]) .btn.run,:root:not([data-theme=dark]) .btn.run:disabled{background:linear-gradient(180deg,#ff9a3c,#f47a12);border-color:#e86f0a;color:#fff;box-shadow:0 8px 18px -8px rgba(244,122,18,.7)}
+:root:not([data-theme=dark]) .btn.go,:root:not([data-theme=dark]) .btn.run,:root:not([data-theme=dark]) .btn.run:disabled{background:linear-gradient(180deg,#d25c00,#b84b00);border-color:#e86f0a;color:#fff;box-shadow:0 8px 18px -8px rgba(244,122,18,.7)}
 :root:not([data-theme=dark]) .menubtn{background:#fff3e6;border:1px solid #ffc890;color:#b45200;box-shadow:0 5px 12px -6px rgba(244,122,18,.4)}
 :root:not([data-theme=dark]) .card h2,:root:not([data-theme=dark]) h2{background:none;-webkit-text-fill-color:currentColor;color:var(--ink)}
-:root:not([data-theme=dark]) .brand b{color:var(--neon)}
+:root:not([data-theme=dark]) .brand b{color:#d65f00}
 :root:not([data-theme=dark]) .brand svg{filter:drop-shadow(0 6px 8px rgba(40,50,65,.18))}
-:root:not([data-theme=dark]) .eyebrow,:root:not([data-theme=dark]) .chipTag{color:#c75e00;border-color:#ffc890;background:#fff3e6}
+:root:not([data-theme=dark]) .eyebrow,:root:not([data-theme=dark]) .chipTag{color:#a34700;border-color:#ffc890;background:#fff3e6}
 :root:not([data-theme=dark]) .idea{background:#fff6ec;border-left-color:var(--neon)}
 :root:not([data-theme=dark]) .ctl-box{background:#f3f5f7;border-color:#c9d0d7}
 :root:not([data-theme=dark]) .steps li::before{background:#dfe3e8}
 :root:not([data-theme=dark]) .dot{background:#fff;border:1.5px solid #c9d0d7;color:var(--ink);box-shadow:0 3px 6px -2px rgba(40,50,65,.25)}
-:root:not([data-theme=dark]) .steps li.cur .dot{background:linear-gradient(180deg,#ff9a3c,#f47a12);border-color:#f47a12;color:#fff;box-shadow:0 0 0 4px rgba(244,122,18,.18)}
+:root:not([data-theme=dark]) .steps li.cur .dot{background:linear-gradient(180deg,#d25c00,#b84b00);border-color:#f47a12;color:#fff;box-shadow:0 0 0 4px rgba(244,122,18,.18)}
 :root:not([data-theme=dark]) .steps li.cur .lab,:root:not([data-theme=dark]) .grec b,:root:not([data-theme=dark]) .kpi b{color:var(--ink)}
-:root:not([data-theme=dark]) .steps li.seen .dot{border-color:var(--neon);color:#c75e00}
+:root:not([data-theme=dark]) .steps li.seen .dot{border-color:var(--neon);color:#a34700}
 :root:not([data-theme=dark]) .pb,:root:not([data-theme=dark]) .prow .bar{background:#e6e9ed}
 :root:not([data-theme=dark]) .pb i,:root:not([data-theme=dark]) .prow .bar i{background:linear-gradient(90deg,#ffb066,#f47a12)}
 :root:not([data-theme=dark]) .parts li,:root:not([data-theme=dark]) .grec div,:root:not([data-theme=dark]) .miss{background:#f6f7f9;border:1px solid #e6e9ee}
 :root:not([data-theme=dark]) .sico,:root:not([data-theme=dark]) .icon,:root:not([data-theme=dark]) .kpi .ring{background:linear-gradient(180deg,#fff,#eef1f4);border:1px solid #e3e7ec;border-radius:14px;box-shadow:0 8px 14px -8px rgba(40,50,65,.3),0 1px 0 #fff inset;color:var(--neon)}
 :root:not([data-theme=dark]) .parts li .i{filter:drop-shadow(0 4px 4px rgba(40,50,65,.18))}
 :root:not([data-theme=dark]) .scard:hover{border-color:#ffc890;transform:translateY(-2px)}
-:root:not([data-theme=dark]) .smeta,:root:not([data-theme=dark]) .scard .st,:root:not([data-theme=dark]) .hero-stats b{color:#c75e00}
+:root:not([data-theme=dark]) .smeta,:root:not([data-theme=dark]) .scard .st,:root:not([data-theme=dark]) .hero-stats b{color:#a34700}
 :root:not([data-theme=dark]) .hero-stats b{color:var(--ink)}
 :root:not([data-theme=dark]) .hero-r{background:linear-gradient(180deg,#fafbfc,#e9ecf0);border-radius:28px;padding:6px;box-shadow:0 20px 40px -20px rgba(40,50,65,.3),0 1px 0 #fff inset}
 :root:not([data-theme=dark]) .mdl{background:rgba(220,225,231,.6)}
@@ -655,7 +655,7 @@ h1,h2,h3,.kpi b,.kpis *{text-shadow:none!important}
 :root:not([data-theme=dark]) .i{stroke:#4a525d}
 /* terminals, lab nodes, graph stay dark inside light page */
 :root:not([data-theme=dark]) .gpterm{--ink:#e6eaee;--muted:#9aa4af;--neon:#ffa24a;color:#e6eaee}
-:root:not([data-theme=dark]) .gpg{--ink:#2a2f37;--muted:#69727e}
+:root:not([data-theme=dark]) .gpg{--ink:#2a2f37;--muted:#566070}
 :root:not([data-theme=dark]) .gpg svg text{stroke:none!important}
 /* ===== 3D icons, motion ===== */
 svg polygon,svg path{stroke-linejoin:round}
@@ -707,6 +707,12 @@ svg polygon,svg path{stroke-linejoin:round}
 :root[data-theme=dark] .hero-r{background:none;border:0;border-radius:28px;padding:6px;box-shadow:none}
 :root[data-theme=dark] .hero-r svg{filter:invert(.9) hue-rotate(180deg) saturate(1.15) brightness(1.05)}
 :root[data-theme=dark] .hero-r svg .fl,:root[data-theme=dark] .hero-r svg image{filter:none}
-:root[data-theme=dark] .btn.go{background:linear-gradient(180deg,#ff9a3c,#f47a12);color:#fff;border-color:#f47a12;box-shadow:0 12px 22px -10px rgba(244,122,18,.7)}
+:root[data-theme=dark] .btn.go{background:linear-gradient(180deg,#d25c00,#b84b00);color:#fff;border-color:#f47a12;box-shadow:0 12px 22px -10px rgba(244,122,18,.7)}
 :root[data-theme=dark] .scard .sico,:root[data-theme=dark] .icon{background:linear-gradient(180deg,#2a3544,#1d2733);border:1px solid #34425a;box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 8px 14px -8px rgba(0,0,0,.7)}
 :root[data-theme=dark] .scard:hover{border-color:#f47a12;transform:translateY(-2px)}
+:root[data-theme=dark] #svg{filter:invert(.86) hue-rotate(180deg) saturate(1.25) brightness(1.18) contrast(1.05)}
+:root[data-theme=dark] .stage{background:linear-gradient(180deg,#2b3646,#1c2431)}
+:root[data-theme=dark] .svgwrap{background-image:radial-gradient(560px 280px at 50% 58%,rgba(255,255,255,.06),transparent 72%)}
+@media(max-width:760px){.hero{grid-template-columns:minmax(0,1fr)!important;gap:8px}.hero-cta .btn.go{min-width:0}.hero-r{order:-1}:root .bar .lessons{flex-wrap:nowrap!important;overflow-x:auto;justify-content:flex-start;scrollbar-width:none}.bar .lessons .tab{flex:none}.bar .lessons .tab:not([aria-current]) .tl{display:none}.bar .lessons .tab{padding:6px 9px}}
+:root:not([data-theme=dark]) .prog b,:root:not([data-theme=dark]) span>b{color:#a34700}
+:focus-visible{outline:3px solid #f47a12;outline-offset:2px}

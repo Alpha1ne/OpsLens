@@ -191,7 +191,7 @@ var PAL={
 var PAL_DARK=JSON.parse(JSON.stringify(PAL)),ISOK;
 var PAL_CLAY={metal:['#ffffff','#d6dce3','#b7c0ca'],teal:['#ffd4a6','#ff9a3c','#e0770f'],dark:['#f6f7f9','#e4e8ec','#d3d9df'],red:['#ffc2c8','#ee6f7a','#c9505b'],amber:['#ffeaa0','#f0bb3f','#c6962a'],blue:['#d6e8f8','#9fc2e6','#7a9fc9'],green:['#d3f2e1','#86cfa8','#62b08a'],slab:['#f5f7f9','#e9ecf0','#d8dde3'],grey:['#d3d9df','#b8c0c9','#9ea8b2'],purple:['#ece0ff','#c3a6ee','#a283d4']};
 function isoTheme(){
-  var d=document.documentElement.getAttribute('data-theme')==='dark',src=d?PAL_DARK:PAL_CLAY,k;
+  var d=false,src=PAL_CLAY,k;
   for(k in src)PAL[k]=src[k];
   ISOK=d?{edge:'rgba(3,12,18,.85)',shc:'#000',sho:.42,slot:'#0a1720',card:'rgba(6,14,21,.9)',idle:'#2a6670',floor:'#ff8a1f',flo:.09,amb:'#ff8a1f',ambo:.16,clay:0,node:'#0b1a24',gs:'0 0 8px ',pg:.16,hi:.5,panel:'fill-opacity=".05"'}:
          {edge:'rgba(105,118,138,.55)',shc:'#3a4658',sho:.07,slot:'#2b3038',card:'rgba(255,255,255,.96)',idle:'#b4bcc6',floor:'#8a96a5',flo:.16,amb:'#ffffff',ambo:.9,clay:1,node:'#ffffff',gs:'0 0 4px ',pg:.07,hi:.9,panel:'fill-opacity=".35"'};
@@ -1542,6 +1542,72 @@ LESSONS.push({
    {label:'Recover',tag:'FIX',title:'Roll back and confirm',text:'Rolling back the release brings the error rate back to normal. The graph is the proof. Afterwards the team writes down what happened and adds a missing alert or test.',idea:'Measure time to detect and time to recover. Both should shrink over time.',scene:{k:4}}
   ]
 });
+
+/* ---------- IAM lesson ---------- */
+function iamMetrics(s){var m=[['Identity','alice','ok'],['Policy','read only','ok'],['Request','s3:GetObject','ok'],['Decision','ALLOW','ok'],['Decision','DENY','bad'],['MFA','required','ok']][s.k];var d=s.k===4?'DENY':(s.k===3||s.k===5?'ALLOW':'pending');return [['Principal','alice','ok'],['Action',['none','none','GetObject','GetObject','PutObject','GetObject'][s.k],'ok'],['Decision',d,d==='DENY'?'bad':'ok'],['Access','least privilege','ok']]}
+function drawIAM(s){
+  IOY=70;var o='',q=Qnew(),k=s.k,cp=P(1.7,8.4,0),pp=P(5.1,3.4,0),rp=P(10.1,8.4,0),deny=k===4;
+  Qadd(q,0,4,plat(0,4,3.4,3.4,'idle')+'<g>'+ic('user',P(1,4.8,5)[0]-22,P(1,4.8,5)[1]-60,44)+'</g>');
+  o+=T(cp[0],cp[1]+4,'alice','lbl xs','middle');
+  Qadd(q,4,0,plat(4,0,2.6,2.2,k>=1?'run':'idle')+vpanel(4.2,0.4,6,2.1,40,'x','list'));
+  o+=T(pp[0],pp[1]+4,'policy','lbl xs','middle');
+  Qadd(q,8.4,4,plat(8.4,4,3.4,3.4,deny?'bad':'ok')+bill('bucket',9.4,5.2,8,44));
+  o+=T(rp[0],rp[1]+4,'S3 bucket','lbl xs','middle');
+  var A=[[3.4,5.7],[8.4,5.7]],D=[[1.7,4],[1.7,1.1],[4,1.1]];
+  o+=pipe(D,k===1||k===2?'flow':null)+pipe(A,k>=2?(deny?'dead':'flow'):null);
+  if(k===1)o+=packet(pipeD(D),1.8,0,'c-req');
+  if(k===2||k===3||k===5)o+=packet(pipeD(A),1.8,0,'c-req')+(k>=3?packet(pipeD([[8.4,5.7],[3.4,5.7]]),1.8,.9,'c-res'):'');
+  if(deny)o+=packet(pipeD([[3.4,5.7],[7,5.7]]),1.8,0,'c-bad');
+  var tx=['An identity: a user, role or app','Policy: alice may only read this bucket','Request: alice calls GetObject','Allowed: the policy says yes','Denied: PutObject is not in the policy','Allowed after MFA, from a trusted role'];
+  o+=chip(330,30,tx[k],deny?'c-bad':null);
+  return o+Qflush(q);
+}
+LESSONS.push({
+  id:'iam',icon:'lock',parts:[["user", {}, "Principal", "Who is asking: a user, role or app."], ["file", {"t": "doc"}, "Policy", "Rules that list allowed actions."], ["bucket", {}, "Resource", "What is being accessed."], ["lock", {}, "MFA", "A second proof of identity."]],name:'IAM and least privilege',
+  blurb:'See how a cloud decides yes or no: who is asking, what the policy allows, and why giving only the access that is needed keeps attackers out.',
+  legend:[['c-req','request'],['c-res','response'],['c-bad','denied']],
+  draw:drawIAM,metrics:iamMetrics,
+  steps:[
+   {label:'Identity',tag:'WHO',title:'Every request starts with an identity',text:'In the cloud, nothing happens anonymously. A person, an app or a server makes each request as a principal such as a user, a role or a service account.',idea:'Prefer roles with temporary credentials over long-lived access keys.',scene:{k:0}},
+   {label:'Policy',tag:'RULES',title:'A policy lists what is allowed',text:'A policy is a small document of rules: this identity may perform these actions on these resources. Alice gets read access to one bucket and nothing else.',idea:'Everything not explicitly allowed is denied by default.',scene:{k:1}},
+   {label:'Request',tag:'ASK',title:'The request is checked',text:'Alice calls GetObject on the bucket. The cloud checks who she is, then looks at every policy attached to her before touching the data.',idea:'Authentication proves who you are. Authorization decides what you can do.',scene:{k:2}},
+   {label:'Allow',tag:'YES',title:'A matching rule allows it',text:'The policy contains s3:GetObject for this bucket, so the request goes through and Alice gets her file. Every decision is logged, which gives you an audit trail.',idea:'Logs of allow and deny decisions are the first place a SOC analyst looks.',scene:{k:3}},
+   {label:'Deny',tag:'NO',title:'Anything else is denied',text:'Alice tries PutObject to overwrite a file. No rule allows it, so it is denied. If her credentials were stolen, the attacker could read but not change or delete data.',idea:'Least privilege limits the damage when an account is compromised.',scene:{k:4}},
+   {label:'MFA',tag:'HARDEN',title:'Add a second factor for sensitive actions',text:'Multi-factor authentication asks for a code or key as well as the password. A policy can require it for risky actions, so a stolen password alone is not enough.',idea:'Turn on MFA for every human user, especially admins.',scene:{k:5}}
+  ]
+});
+
+/* ---------- Linux lesson ---------- */
+function linMetrics(s){var m=[['Owner','alice','644'],['Group','devs','640'],['Mode','rw- r-- ---','640'],['User','bob','denied'],['Process','nginx','running'],['Log','auth.log','24 lines']][s.k];return [['File','report.txt','ok'],['Mode',['644','640','640','640','640','640'][s.k],'ok'],['Access',s.k===3?'denied':'ok',s.k===3?'bad':'ok'],['Focus',['owner','group','permissions','denied','process','logs'][s.k],'ok']]}
+function drawLin(s){
+  IOY=70;var o='',q=Qnew(),k=s.k,cp=P(1.7,8.4,0),fp=P(5.1,3.4,0),sp=P(10.1,8.4,0);
+  Qadd(q,0,4,plat(0,4,3.4,3.4,'idle')+'<g>'+ic('user',P(1,4.8,5)[0]-22,P(1,4.8,5)[1]-60,44)+'</g>');
+  o+=T(cp[0],cp[1]+4,k===3?'bob':'alice','lbl xs','middle');
+  Qadd(q,4,0,plat(4,0,2.6,2.2,'run')+bill('file',5.1,1.1,6,44));
+  o+=T(fp[0],fp[1]+4,'report.txt','lbl xs','middle');
+  Qadd(q,8.4,4,plat(8.4,4,3.4,3.4,k===4?'ok':'idle')+rack(9.1,4.6,k===4?'ok':'idle'));
+  o+=T(sp[0],sp[1]+4,k>=4?'nginx':'server','lbl xs','middle');
+  var D=[[1.7,4],[1.7,1.1],[4,1.1]],B=[[3.4,5.7],[8.4,5.7]];
+  o+=pipe(D,k<=2?'flow':(k===3?'dead':null))+pipe(B,k>=4?'flow':null);
+  if(k<=2)o+=packet(pipeD(D),2,0,'c-req');if(k===3)o+=packet(pipeD([[1.7,4],[1.7,1.1],[3,1.1]]),2,0,'c-bad');if(k>=4)o+=packet(pipeD(B),2,0,'c-req');
+  var tx=['Owner alice owns report.txt','Group devs can also read it','-rw-r----- = owner rw, group r, others none','bob is not in devs: Permission denied','ps shows nginx running as its own user','journalctl and /var/log record what happened'];
+  o+=chip(330,30,tx[k],k===3?'c-bad':null);
+  return o+Qflush(q);
+}
+LESSONS.push({
+  id:'linux',icon:'server',parts:[["user", {}, "User", "An account that owns files and runs processes."], ["file", {"t": "doc"}, "File", "Has an owner, a group and permission bits."], ["server", {}, "Process", "A running program, with the rights of its user."], ["folder", {}, "Logs", "Where Linux records events in /var/log."]],name:'Linux basics',
+  blurb:'Learn the Linux ideas every DevOps and security job relies on: users and groups, file permissions, processes and logs.',
+  legend:[['c-req','access'],['c-bad','denied']],
+  draw:drawLin,metrics:linMetrics,
+  steps:[
+   {label:'Owner',tag:'USERS',title:'Every file has an owner',text:'Linux is multi-user. Each file belongs to one user, here alice. You can see it with ls -l, which lists the owner, the group and the permissions.',idea:'Run services as their own low-privilege user, never as root.',scene:{k:0}},
+   {label:'Group',tag:'GROUPS',title:'Groups share access',text:'A file also belongs to a group, such as devs. Anyone in that group gets the group permissions, so a team can share files without sharing a password.',idea:'Use groups to give access to teams, not to individuals.',scene:{k:1}},
+   {label:'Mode',tag:'CHMOD',title:'Permissions are three sets of three bits',text:'rw-r----- reads as: owner can read and write, group can read, everyone else gets nothing. In numbers that is 640. chmod changes it, chown changes the owner.',idea:'r=4, w=2, x=1. Add them up per set: 6 is rw, 4 is r, 0 is none.',scene:{k:2}},
+   {label:'Denied',tag:'BLOCK',title:'Others are refused',text:'bob is not the owner and not in devs, so reading the file gives Permission denied. This is the same least-privilege idea you saw in IAM, built into the operating system.',idea:'Check ls -l and id when you see Permission denied.',scene:{k:3}},
+   {label:'Process',tag:'RUNNING',title:'Processes run as a user',text:'A running program is a process, and it can only touch what its user can touch. ps and top show them, systemctl starts and stops services such as nginx.',idea:'If a service is hacked, the attacker gets only that user\'s rights.',scene:{k:4}},
+   {label:'Logs',tag:'EVIDENCE',title:'Logs record what happened',text:'Linux logs logins, sudo use, errors and service events under /var/log and in the journal. tail -f follows a log live, and grep finds a pattern such as Failed password.',idea:'When something breaks or looks suspicious, read the logs first.',scene:{k:5}}
+  ]
+});
 var SECT=[
  {id:'git',kind:'lesson',lesson:'git',tag:'Code',icon:'branch'},
  {id:'docker',kind:'lesson',lesson:'docker',tag:'Containers',icon:'container'},
@@ -1552,6 +1618,8 @@ var SECT=[
  {id:'network',kind:'lesson',lesson:'network',tag:'Foundations',icon:'cloud'},
  {id:'terraform',kind:'lesson',lesson:'terraform',tag:'Infrastructure',icon:'gear'},
  {id:'monitoring',kind:'lesson',lesson:'monitoring',tag:'Operations',icon:'clock'},
+ {id:'iam',kind:'lesson',lesson:'iam',tag:'Security',icon:'lock'},
+ {id:'linux',kind:'lesson',lesson:'linux',tag:'Foundations',icon:'server'},
  {id:'game',kind:'game',name:'Incident Room',tag:'Play',icon:'firewall'},
  {id:'lab',kind:'lab',name:'Build Lab',tag:'Practice',icon:'gear'},
  {id:'gp',kind:'gp',name:'Git Practice',tag:'Practice',icon:'commit'}
@@ -2201,6 +2269,8 @@ function nav(h){if(location.hash===h)fromHash();else location.hash=h}
 /* ---------- landing page, quick checks, completion, notes, tour ---------- */
 var hmOn=false;(function(){var t=lsGet("theme",null);if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');isoTheme()}})();var qzOn=false,QZ=null,tourI=0;
 var QUIZ={
+iam:[["What does least privilege mean?",["Give everyone admin","Give only the access that is needed","Share one password","Disable logging"],1,"Grant the minimum permissions required, so a compromised account can do little damage."],["No policy allows an action. What happens?",["It is allowed","It is denied","It is delayed","It asks for a password"],1,"Access is denied by default unless a policy explicitly allows it."],["What does MFA add?",["A second proof of identity","More storage","Faster logins","A bigger policy"],0,"A code or key on top of the password, so a stolen password alone is not enough."]],
+linux:[["What does permission mode 640 mean?",["Owner rw, group r, others none","Everyone can write","Owner only","Group rw, others r"],0,"6 = rw for the owner, 4 = r for the group, 0 = nothing for others."],["Which command changes a file's permissions?",["chmod","ls","grep","ps"],0,"chmod changes the mode. chown changes the owner."],["Where does Linux keep most logs?",["/var/log","/bin","/tmp/new","/home/bin"],0,"/var/log holds system and service logs, plus the systemd journal."]],
 terraform:[["Which command shows what will change without changing anything?",["terraform plan","terraform apply","terraform init","terraform fmt"],0,"plan previews the add, change and destroy counts. Nothing is touched."],["What does the state file record?",["Your passwords","Which real resources Terraform created","The Git history","Server logs"],1,"State maps your code to the real resources it manages."],["Someone edits a resource by hand in the console. What reveals it?",["Nothing","terraform plan shows drift","terraform init","The next Git commit"],1,"Plan compares code, state and the real cloud, so drift appears as a change."]],
 monitoring:[["Which alert is the better one?",["CPU above 70% for 1 minute","Error rate above 5% for 5 minutes","Disk reads increased","Memory changed"],1,"Alert on a symptom users feel and sustain it long enough to avoid noise."],["What do logs give you that metrics usually do not?",["Detail about individual events","A smaller bill","Faster pages","Encryption"],0,"Metrics show that something is wrong. Logs explain the specific event."],["Which is one of the four golden signals?",["Colour","Saturation","Font size","Branch name"],1,"Latency, traffic, errors and saturation."]],
 network:[["Which service turns shop.example.com into an IP address?",["DNS","DHCP","TLS","SSH"],0,"DNS maps names to IP addresses."],["Which port does HTTPS use by default?",["22","80","443","53"],2,"HTTPS uses TCP port 443. 80 is HTTP and 22 is SSH."],["A firewall silently drops a connection. What does the user usually see?",["A 404 page","A timeout","A certificate warning","A redirect"],1,"Dropped packets get no reply, so the client waits and times out."]],
@@ -2394,7 +2464,7 @@ function notesDownload(L){
 }
 function notesPrint(L){$('#printdoc').innerHTML=notesHTML(L);try{window.print()}catch(e){}}
 /* ----- tour ----- */
-var TOUR=[["Welcome to OpsLens","Ten interactive lessons, three practice labs and 24 AWS guides. Everything runs in your browser, and your progress is saved there."],["Pick a lesson","The tabs at the top open a lesson. Each one has an animated 3D diagram, short step cards, and a quick check at the end."],["Practice what you learn","The Practice menu has the Incident Room game, the Build Lab for designing your own infrastructure, and a Git Practice terminal."],["Find anything fast","The Sections button opens a window listing every lesson, step and AWS guide, with your progress."]];
+var TOUR=[["Welcome to OpsLens","Twelve interactive lessons, three practice labs and 24 AWS guides. Everything runs in your browser, and your progress is saved there."],["Pick a lesson","The tabs at the top open a lesson. Each one has an animated 3D diagram, short step cards, and a quick check at the end."],["Practice what you learn","The Practice menu has the Incident Room game, the Build Lab for designing your own infrastructure, and a Git Practice terminal."],["Find anything fast","The Sections button opens a window listing every lesson, step and AWS guide, with your progress."]];
 function tourOpen(){
   var t=$('#tour');if(!t){t=document.createElement('div');t.id='tour';t.className='mdl';t.setAttribute('role','dialog');t.setAttribute('aria-modal','true');t.setAttribute('aria-labelledby','tourT');$('.app').appendChild(t)}
   tourI=0;t.hidden=false;tourRender();
