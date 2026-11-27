@@ -520,7 +520,7 @@ function drawK8s(s){
       var one=list.length===1,px=one?nx+1.3:nx+0.8+(j%2)*1.7,py=one?ny+1.4:ny+0.9+Math.floor(j/2)*1.1,pal=p.s==='crash'?'red':(p.s==='wait'?'amber':'green');
       var pg=ibox(px,py,5,1.3,0.8,15,pal,{glow:dead?null:(p.s==='crash'?'rgba(255,95,109,.55)':'rgba(255,138,31,.45)')});
       var tp=P(px+0.65,py+0.4,21);
-      pg+=T(tp[0],tp[1]-3,'web-'+p.id+(p.v!=='v1'?' '+p.v:'')+(p.s==='crash'?' !':''),'lbl xs','middle');
+      pg+=T(tp[0],tp[1]-12,'web-'+p.id+(p.v!=='v1'?' '+p.v:'')+(p.s==='crash'?' !':''),'lbl xs','middle');
       if(p.s==='crash'&&!reduce)pg='<g><animateTransform attributeName="transform" type="translate" values="0 0;-2 0;2 0;0 0" dur=".4s" repeatCount="indefinite"/>'+pg+'</g>';
       if(p.s==='wait'&&!reduce)pg='<g><animate attributeName="opacity" values="1;.4;1" dur="1.1s" repeatCount="indefinite"/>'+pg+'</g>';
       items.push({d:px+py,s:'<g opacity="'+(dead?0.5:1)+'">'+pg+'</g>'});
@@ -782,6 +782,8 @@ function drawDocker(s){
     var bp2=P(10.1,6.0,0);o+=T(bp2[0],bp2[1]+16,'server B','lbl xs','middle');
     o+=pipe([[7.2,3.4],[7.2,-1.3],[9.2,-1.3]],'flow')+packet(pipeD([[7.2,3.4],[7.2,-1.3],[9.2,-1.3]]),1.8,0,'c-req');
     if(s.reg===2){o+=pipe([[10.3,0.6],[10.3,3.6]],'flow')+packet(pipeD([[10.3,0.6],[10.3,3.6]]),1.2,0,'c-res')+chip(bp2[0],bp2[1]+44,'running','c-res')}
+  }else if(!tot){
+    Qadd(q,8.2,1.6,plat(8.2,1.6,2.8,3.4,'idle')+rack(8.8,2.3,'idle'));var ep=P(9.6,5.0,0);o+=T(ep[0],ep[1]+16,'docker host','lbl xs','middle')+pipe([[7.2,3.4],[8.2,3.4]],null);
   }else if(tot){
     var hx=8.2,hy=1.6,hh=Math.max(3.4,tot*0.95+0.8),g2=plat(hx,hy,2.8,hh,'ok');
     for(i=0;i<tot;i++){
@@ -882,7 +884,7 @@ function drawEC2(s){
   o+=Qflush(q);
   o+=card(cp[0]+30,40,'EC2 instance',[s.type+' · '+s.vcpu+' vCPU',s.mem+' GiB · '+s.st],tone==='idle'?'bad':tone,160)+leader(cp[0]+30,72,top[0],top[1]-4);
   if(s.sg){
-    var sgp=P(ix+3.0,iy+0.2,6);
+    var sgp=P(ix+3.6,iy-0.9,6);
     o+=ic('shield',sgp[0]-6,sgp[1]-34,26)+T(sgp[0]+22,sgp[1]-16,'security group','lbl sm');
     var rl=[[s.sg.ssh===2?'SSH · any IP':(s.sg.ssh===1?'SSH · my IP':'SSH closed'),s.sg.ssh],['HTTP 80',s.sg.http],['MySQL 3306',s.sg.db]];
     rl.forEach(function(r,k){var w=r[0].length*8+38,dot=r[1]===0?'c-bad':(r[1]===2?'c-slow':'c-res');o+=chip(clamp(sgp[0]+80,w/2+8,640-w/2-8),sgp[1]+4+k*34,r[0],dot)});
@@ -1500,15 +1502,17 @@ function drawTF(s){
   Qadd(q,8,3.6,plat(8,3.6,3.6,4,k>=3&&k<5?'ok':'idle'));
   var n=k>=3&&k<5?3:0;
   var kinds=['rack','cloud','disk'];
-  for(i=0;i<n;i++){var y=3.9+i*1.2;Qadd(q,8.4,y,ibox(8.5,y,5,2.6,0.9,12,i===1&&k===4?'amber':'teal',{glow:'rgba(255,138,31,.45)'}))}
+  var RN=[['web server','server'],['logs bucket','bucket'],['network','cloud']];
+  for(i=0;i<n;i++){var y=3.9+i*1.2;Qadd(q,8.4,y,ibox(8.5,y,5,2.6,0.9,12,i===1&&k===4?'amber':'teal',{glow:'rgba(255,138,31,.45)'})+bill(RN[i][1],9.6,y+0.45,22,26));var lq=P(11.2,y+0.45,10);o+=leader(lq[0]+16,lq[1],lq[0]+30,lq[1],'#ff8a1f')+T(lq[0]+34,lq[1]+4,RN[i][0]+(i===1&&k===4?' ~':' +'),'lbl sm')}
+  if(k>=3&&k<5)o+=chip(cp[0]+30,cp[1]+36,'state saved','c-res');
   if(k===2)for(i=0;i<3;i++){var y2=3.9+i*1.2;Qadd(q,8.4,y2,ibox(8.5,y2,5,2.6,0.9,12,'grey',{op:.45}))}
   if(k===5)o+=chip(rp[0]-60,rp[1]-130,'3 resources removed','c-bad');
-  o+=T(rp[0],rp[1]+4,'cloud account','lbl xs','middle');
+  o+=T(rp[0]-60,rp[1]+4,'cloud account','lbl xs','middle');
   var A=[[3.4,5.7],[8,5.7]];o+=pipe(A,k>=2&&k<=4?'flow':(k===5?'dead':null));
   if(k===2||k===3)o+=packet(pipeD(A),2,0,'c-req');
   var tx=['Terraform reads .tf files','terraform init downloads the provider','Plan: 3 to add, 0 to change, 0 to destroy','Apply complete! 3 added','Plan: 0 to add, 1 to change','Destroy complete! 3 destroyed'];
   o+=chip(330,30,tx[k]);
-  return o+Qflush(q);
+  return Qflush(q)+o;
 }
 LESSONS.push({
   id:'terraform',icon:'gear',parts:[["file", {"t": "doc"}, "Config", "Files that describe the infrastructure you want."], ["gear", {}, "Provider", "The plugin that talks to a cloud API."], ["clipboard", {}, "Plan", "A preview of what will change."], ["cloud", {}, "State", "Terraform's record of what it created."]],name:'Terraform',
