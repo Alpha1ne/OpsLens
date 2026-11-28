@@ -1307,6 +1307,13 @@ var TERMS={
   {q:'Check the status of the nginx service.',re:/^systemctl status nginx$/,out:'nginx.service - A high performance web server\n   Active: active (running) since Thu 2026-11-26 09:00:12 UTC',hint:'systemctl status nginx'},
   {q:'Show the last 50 log lines for nginx.',re:/^(sudo )?journalctl -u nginx -n 50( --no-pager)?$/,out:'Nov 26 09:00:12 web1 systemd[1]: Started nginx.\nNov 26 09:14:03 web1 nginx[812]: GET /health 200',hint:'journalctl -u nginx -n 50'},
   {q:'Show free and used disk space in human-readable form.',re:/^df -h$/,out:'Filesystem  Size  Used Avail Use% Mounted on\n/dev/sda1    40G   31G  7.2G  82% /',hint:'df -h'}]},
+ logs:{title:'Practice: investigate the attack',tasks:[
+  {q:'Show the last 20 lines of /var/log/auth.log.',re:/^(sudo )?tail -n? ?20 \/var\/log\/auth\.log$/,out:'Nov 26 02:14:01 web1 sshd[3301]: Failed password for root from 203.0.113.7 port 51022 ssh2\nNov 26 02:14:02 web1 sshd[3303]: Failed password for admin from 203.0.113.7 port 51030 ssh2\nNov 26 02:14:04 web1 sshd[3307]: Accepted password for ubuntu from 203.0.113.7 port 51044 ssh2',hint:'tail -n 20 /var/log/auth.log'},
+  {q:'Show only the lines containing "Failed password" in auth.log.',re:/^(sudo )?grep ("|\')?Failed password("|\')? (\/var\/log\/)?auth\.log$/,out:'Nov 26 02:14:01 web1 sshd[3301]: Failed password for root from 203.0.113.7\nNov 26 02:14:02 web1 sshd[3303]: Failed password for admin from 203.0.113.7\n... 211 lines',hint:'grep "Failed password" auth.log'},
+  {q:'Count the failed passwords per source IP: grep Failed, take field 11 with awk, sort, uniq -c, then sort -nr (auth.log).',re:/^grep ("|\')?Failed("|\')? (\/var\/log\/)?auth\.log \| awk ("|\')\{print \$11\}("|\')? \| sort \| uniq -c \| sort -nr$/,out:'    211 203.0.113.7\n      3 198.51.100.4\n      1 192.0.2.9',hint:"grep Failed auth.log | awk '{print $11}' | sort | uniq -c | sort -nr"},
+  {q:'Check whether any login was accepted: grep for "Accepted" in auth.log.',re:/^(sudo )?grep ("|\')?Accepted("|\')? (\/var\/log\/)?auth\.log$/,out:'Nov 26 02:14:04 web1 sshd[3307]: Accepted password for ubuntu from 203.0.113.7',hint:'grep Accepted auth.log'},
+  {q:'Block 203.0.113.7 with ufw (deny from that address).',re:/^(sudo )?ufw deny from 203\.0\.113\.7( to any)?$/,out:'Rule added',hint:'sudo ufw deny from 203.0.113.7'},
+  {q:'Show who is logged in right now.',re:/^(w|who)$/,out:'ubuntu   pts/1   203.0.113.7   02:14   (still connected)',hint:'who'}]},
  ec2:{title:'Practice: AWS CLI and IAM',tasks:[
   {q:'List your EC2 instances.',re:/^aws ec2 describe-instances$/,out:'{ "Reservations": [ { "Instances": [ { "InstanceId": "i-0abc123", "State": { "Name": "running" } } ] } ] }',hint:'aws ec2 describe-instances'},
   {q:'Stop instance i-0abc123.',re:/^aws ec2 stop-instances\s+--instance-ids\s+i-0abc123$/,out:'{ "StoppingInstances": [ { "InstanceId": "i-0abc123", "CurrentState": { "Name": "stopping" } } ] }',hint:'aws ec2 stop-instances --instance-ids i-0abc123'},
@@ -1625,6 +1632,106 @@ LESSONS.push({
    {label:'Logs',tag:'EVIDENCE',title:'Logs record what happened',text:'Linux logs logins, sudo use, errors and service events under /var/log and in the journal. tail -f follows a log live, and grep finds a pattern such as Failed password.',idea:'When something breaks or looks suspicious, read the logs first.',scene:{k:5}}
   ]
 });
+/* ---------- Security track: TLS, log attack, incident response ---------- */
+function tlsMetrics(s){return [['Port','443','ok'],['Protocol',['TLS 1.3','TLS 1.3','TLS 1.3','TLS 1.3','TLS 1.3','TLS 1.3'][s.k],'ok'],['Certificate',['none yet','received','valid','valid','valid','expired'][s.k],s.k===5?'bad':'ok'],['Traffic',['plain','plain','plain','keys agreed','encrypted','blocked'][s.k],s.k===5?'bad':'ok']]}
+function drawTLS(s){
+  IOY=70;var o='',q=Qnew(),k=s.k,cp=P(1.7,8.4,0),ap=P(5.1,3.4,0),sp=P(10.1,8.4,0),bad=k===5;
+  Qadd(q,0,4,plat(0,4,3.4,3.4,'idle')+bill('user',1,4.8,5,44));
+  o+=T(cp[0],cp[1]+4,'browser','lbl xs','middle');
+  Qadd(q,4,0,plat(4,0,2.6,2.2,k>=2?(bad?'bad':'ok'):'idle')+bill('shield',5.1,1.1,6,44));
+  o+=T(ap[0],ap[1]+4,'CA','lbl xs','middle');
+  Qadd(q,8.4,4,plat(8.4,4,3.4,3.4,bad?'bad':(k>=3?'ok':'run'))+rack(9.1,4.6,bad?'bad':(k>=3?'ok':'run')));
+  o+=T(sp[0],sp[1]+4,'web server','lbl xs','middle');
+  var A=[[3.4,5.7],[8.4,5.7]],C=[[8.4,5.7],[6.6,1.1]];
+  o+=pipe(A,k===0||k>=3?(bad?'dead':'flow'):null)+pipe(C,k===2?'flow':null);
+  if(k===0)o+=packet(pipeD(A),1.8,0,'c-req');
+  if(k===1)o+=packet(pipeD([[8.4,5.7],[3.4,5.7]]),1.8,0,'c-res');
+  if(k===2)o+=packet(pipeD(C),1.8,0,'c-req');
+  if(k===3||k===4)o+=packet(pipeD(A),1.8,0,'c-res')+packet(pipeD([[8.4,5.7],[3.4,5.7]]),1.8,.9,'c-res');
+  if(bad)o+=packet(pipeD([[3.4,5.7],[7,5.7]]),1.8,0,'c-bad');
+  var tx=['ClientHello: TLS 1.3 + ciphers','Server sends its certificate','Browser checks signature and dates','Keys agreed, unreadable on the wire','Encrypted: requests unreadable','Expired certificate: page blocked'];
+  o+=chip(330,30,tx[k],bad?'c-bad':null);
+  return o+Qflush(q);
+}
+LESSONS.push({
+  id:'tls',icon:'lock',parts:[["user",{},"Browser","Starts the handshake and checks the certificate."],["shield",{},"CA","A certificate authority that vouches for a site."],["file",{"t":"doc"},"Certificate","Holds the site name, public key, dates and a signature."],["key",{},"Session key","A short-lived secret that encrypts the traffic."]],name:'TLS and certificates',
+  blurb:'Follow an HTTPS connection from the first hello to encrypted traffic, and see why a certificate that expires or does not match takes a site down.',
+  legend:[['c-req','request'],['c-res','response'],['c-bad','blocked']],
+  draw:drawTLS,metrics:tlsMetrics,
+  steps:[
+   {label:'Hello',tag:'START',title:'The browser says hello',text:'When you open https://shop.example.com, the browser connects to port 443 and sends a ClientHello. It lists the TLS versions and ciphers it supports.',idea:'HTTPS is just HTTP carried inside a TLS tunnel on port 443.',scene:{k:0}},
+   {label:'Certificate',tag:'PROOF',title:'The server shows its certificate',text:'The server replies with a certificate. It names the site, carries the server\'s public key, lists a validity period and is signed by a certificate authority.',idea:'A certificate is a signed ID card for a website.',scene:{k:1}},
+   {label:'Verify',tag:'TRUST',title:'The browser verifies the chain',text:'The browser checks that a trusted CA signed the certificate, that the name matches the address bar, and that today is inside the validity dates.',idea:'Trust comes from the CA chain, not from the server saying so itself.',scene:{k:2}},
+   {label:'Keys',tag:'SECRET',title:'Both sides agree on a secret key',text:'Using the server\'s public key and a key exchange, the two sides agree on a session key. An eavesdropper watching the network cannot work it out.',idea:'Public-key crypto sets up the key. Fast symmetric crypto then protects the data.',scene:{k:3}},
+   {label:'Encrypted',tag:'SAFE',title:'Everything after that is encrypted',text:'Requests, cookies and form data now travel as unreadable bytes. Someone on the same Wi-Fi sees that you talk to the site, but not what you send.',idea:'TLS gives confidentiality, integrity and server authentication.',scene:{k:4}},
+   {label:'Expired',tag:'FAIL',title:'An expired certificate breaks everything',text:'If the certificate expires, the browser shows a warning and blocks the page. Many real outages are just a forgotten renewal. Automate it with Let\'s Encrypt or ACM and alert 30 days before expiry.',idea:'Monitor certificate expiry like any other service.',scene:{k:5}}
+  ]
+});
+
+function logMetrics(s){var f=[0,38,212,213,213,0][s.k];return [['Failed logins',f,s.k>=2?'bad':'ok'],['Source IPs',s.k>=1?'1':'many',s.k>=1?'bad':'ok'],['Targeted users',['normal','root','root, admin, ubuntu','root, admin, ubuntu','root, admin, ubuntu','blocked'][s.k],'ok'],['Status',['quiet','suspicious','brute force','compromised?','investigating','blocked'][s.k],s.k===5?'ok':(s.k>=1?'bad':'ok')]]}
+function drawLog(s){
+  IOY=70;var o='',q=Qnew(),k=s.k,cp=P(1.7,8.4,0),fp=P(5.1,3.4,0),sp=P(10.1,8.4,0),att=k>=1&&k<5;
+  Qadd(q,0,4,plat(0,4,3.4,3.4,att?'bad':'idle')+bill('user',1,4.8,5,44));
+  o+=T(cp[0],cp[1]+4,att?'203.0.113.7':'users','lbl xs','middle');
+  Qadd(q,4,0,plat(4,0,2.6,2.2,k>=1?'run':'idle')+bill('file',5.1,1.1,6,44));
+  o+=T(fp[0],fp[1]+4,'auth.log','lbl xs','middle');
+  Qadd(q,8.4,4,plat(8.4,4,3.4,3.4,k===3?'bad':'ok')+rack(9.1,4.6,k===3?'bad':'ok'));
+  o+=T(sp[0],sp[1]+4,'sshd on web1','lbl xs','middle');
+  var A=[[3.4,5.7],[8.4,5.7]],L=[[8.4,5.7],[6.6,1.1]];
+  o+=pipe(A,k===5?'dead':(k<=3?'flow':null))+pipe(L,k>=1&&k<=4?'flow':null);
+  if(k<5)o+=packet(pipeD(A),k>=2?0.9:1.8,0,att?'c-bad':'c-req');
+  if(k>=1&&k<=4)o+=packet(pipeD(L),1.8,.4,'c-res');
+  var tx=['Normal: few logins, nearly all succeed','38 failed root logins in a minute','One IP, many users: brute force','Accepted login after 211 failures','Count failures per IP with the shell','fail2ban and firewall drop that IP'];
+  o+=chip(330,30,tx[k],att&&k!==4?'c-bad':null);
+  return o+Qflush(q);
+}
+LESSONS.push({
+  id:'logs',icon:'firewall',parts:[["file",{"t":"doc"},"auth.log","Records every login attempt on a Linux server."],["user",{},"Source IP","Where the attempts come from."],["firewall",{},"Firewall","Drops traffic from addresses you block."],["server",{},"fail2ban","Bans an IP after too many failures."]],name:'Log attack hunt',
+  blurb:'Read a real-looking auth.log, spot a brute-force attack, find out whether it worked, and shut it down. This is the daily work of a SOC analyst.',
+  legend:[['c-req','normal'],['c-res','log entry'],['c-bad','attack']],
+  draw:drawLog,metrics:logMetrics,
+  steps:[
+   {label:'Baseline',tag:'NORMAL',title:'Know what normal looks like',text:'On a healthy server, auth.log shows a handful of logins per day from known users and addresses. Almost every attempt succeeds.',idea:'You can only spot abnormal when you know the baseline.',scene:{k:0}},
+   {label:'Spike',tag:'ALERT',title:'A spike of failed logins',text:'Suddenly there are 38 "Failed password for root" lines in one minute. People do not mistype a password that often. A script is guessing.',idea:'Volume and speed are the first clues of automation.',scene:{k:1}},
+   {label:'Pattern',tag:'PATTERN',title:'One IP, many usernames',text:'The same address tries root, admin, ubuntu and test. That pattern is a brute-force or password-spraying attack against the SSH service.',idea:'Group by source IP and by username to see the shape of an attack.',scene:{k:2}},
+   {label:'Breach?',tag:'DANGER',title:'Did any attempt succeed?',text:'The most important question is whether a login was accepted. Here the log shows "Accepted password for ubuntu" right after 211 failures from the same IP. Treat the account as compromised.',idea:'A success after many failures is the line that turns an alert into an incident.',scene:{k:3}},
+   {label:'Investigate',tag:'HUNT',title:'Count and sort with the shell',text:'Pipe the log through grep, sort and uniq -c to count failures per IP, then check what that account did after logging in: last, history and journalctl.',idea:'Small shell pipelines answer most first-line questions quickly.',scene:{k:4}},
+   {label:'Block',tag:'FIX',title:'Block it and harden SSH',text:'Ban the IP with the firewall or fail2ban, then disable password login, require keys, disable root login and restrict SSH to known addresses.',idea:'Detect, confirm, contain, then fix the root cause so it cannot repeat.',scene:{k:5}}
+  ]
+});
+
+function irMetrics(s){return [['Phase',['Prepare','Detect','Contain','Eradicate','Recover','Review'][s.k],'ok'],['Server web1',['healthy','alerting','isolated','rebuilt','back online','healthy'][s.k],s.k===1||s.k===2?'bad':'ok'],['Impact',['none','unknown','limited','limited','none','none'][s.k],s.k===1?'bad':'ok'],['Owner',['team','on-call','incident lead','incident lead','on-call','team'][s.k],'ok']]}
+function drawIR(s){
+  IOY=70;var o='',q=Qnew(),k=s.k,cp=P(1.7,8.4,0),mp=P(5.1,3.4,0),sp=P(10.1,8.4,0),hurt=k===1||k===2||k===3;
+  Qadd(q,0,4,plat(0,4,3.4,3.4,k===0?'ok':'idle')+bill('user',1,4.8,5,44));
+  o+=T(cp[0],cp[1]+4,k<=1?'on-call':'responder','lbl xs','middle');
+  Qadd(q,4,0,plat(4,0,2.6,2.2,k>=1?'run':'idle')+bill('firewall',5.1,1.1,6,44));
+  o+=T(mp[0],mp[1]+4,'monitoring','lbl xs','middle');
+  Qadd(q,8.4,4,plat(8.4,4,3.4,3.4,hurt?'bad':'ok',k===2)+rack(9.1,4.6,hurt?'bad':'ok'));
+  o+=T(sp[0],sp[1]+4,k===3?'web1 (rebuilt)':'web1','lbl xs','middle');
+  var A=[[3.4,5.7],[8.4,5.7]],M=[[8.4,5.7],[6.6,1.1]];
+  o+=pipe(A,k===2?'dead':(k>=3?'flow':null))+pipe(M,k===1?'flow':null);
+  if(k===1)o+=packet(pipeD(M),1.6,0,'c-bad');
+  if(k===3||k===4)o+=packet(pipeD(A),1.8,0,'c-req');
+  var tx=['Prepare: runbooks, backups, logs','Detect: alert fires, triage starts','Contain: isolate web1','Eradicate: rebuild from clean image','Recover: restore and watch closely','Review: blameless postmortem'];
+  o+=chip(330,30,tx[k],hurt?'c-bad':null);
+  return o+Qflush(q);
+}
+LESSONS.push({
+  id:'ir',icon:'shield',parts:[["firewall",{},"Alert","The signal that something is wrong."],["user",{},"Incident lead","Owns decisions and communication."],["server",{},"Affected host","The machine being isolated and rebuilt."],["file",{"t":"doc"},"Postmortem","A blameless write-up of what happened and what changes."]],name:'Incident response',
+  blurb:'Walk through the six phases of handling a security incident, from preparation to postmortem, using a compromised web server as the example.',
+  legend:[['c-req','traffic'],['c-bad','alert'],['c-res','response']],
+  draw:drawIR,metrics:irMetrics,
+  steps:[
+   {label:'Prepare',tag:'1',title:'Preparation happens before the incident',text:'Runbooks, an on-call rota, contact lists, tested backups and central logs all exist before anything breaks. During an incident there is no time to invent them.',idea:'Good response is mostly decided in advance.',scene:{k:0}},
+   {label:'Detect',tag:'2',title:'Detect and triage',text:'An alert fires on web1. Triage asks: is it real, how bad is it, and who needs to know? Record the time and every action in a shared log from the start.',idea:'Write things down as you go. You will need the timeline later.',scene:{k:1}},
+   {label:'Contain',tag:'3',title:'Contain the damage',text:'Isolate web1 from the network with a security group change, but keep it running so evidence in memory and logs is preserved. Rotate any credentials it could reach.',idea:'Contain first. Do not wipe the machine before you have copied the evidence.',scene:{k:2}},
+   {label:'Eradicate',tag:'4',title:'Remove the cause',text:'Find how the attacker got in, such as a weak password or unpatched software, and fix it. Then rebuild web1 from a clean image instead of trying to clean it by hand.',idea:'Rebuild beats repair. You cannot be sure what a compromised host still contains.',scene:{k:3}},
+   {label:'Recover',tag:'5',title:'Recover and watch',text:'Bring the rebuilt server back into the load balancer, confirm it behaves normally, and keep extra monitoring on it for a few days.',idea:'Return to service gradually and verify at each step.',scene:{k:4}},
+   {label:'Review',tag:'6',title:'Learn from it',text:'Hold a blameless postmortem within a week: timeline, root cause, what worked, what did not, and owned action items with dates.',idea:'Blameless means fixing the system, not finding someone to blame.',scene:{k:5}}
+  ]
+});
+
 var SECT=[
  {id:'git',kind:'lesson',lesson:'git',tag:'Code',icon:'branch'},
  {id:'docker',kind:'lesson',lesson:'docker',tag:'Containers',icon:'container'},
@@ -1637,6 +1744,9 @@ var SECT=[
  {id:'monitoring',kind:'lesson',lesson:'monitoring',tag:'Operations',icon:'clock'},
  {id:'iam',kind:'lesson',lesson:'iam',tag:'Security',icon:'lock'},
  {id:'linux',kind:'lesson',lesson:'linux',tag:'Foundations',icon:'server'},
+ {id:'tls',kind:'lesson',lesson:'tls',tag:'Security',icon:'lock'},
+ {id:'logs',kind:'lesson',lesson:'logs',tag:'Security',icon:'firewall'},
+ {id:'ir',kind:'lesson',lesson:'ir',tag:'Security',icon:'shield'},
  {id:'lnx',kind:'lnx',name:'Linux guides',tag:'Foundations',icon:'server'},
  {id:'game',kind:'game',name:'Incident Room',tag:'Play',icon:'firewall'},
  {id:'lab',kind:'lab',name:'Build Lab',tag:'Practice',icon:'gear'},
@@ -2307,6 +2417,9 @@ function nav(h){if(location.hash===h)fromHash();else location.hash=h}
 /* ---------- landing page, quick checks, completion, notes, tour ---------- */
 var hmOn=false;(function(){var t=lsGet("theme",null);if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');isoTheme()}})();var qzOn=false,QZ=null,tourI=0;
 var QUIZ={
+tls:[["Which port does HTTPS use by default?",["22","80","443","3389"],2,"HTTPS uses TCP port 443."],["What does a CA signature on a certificate prove?",["The site is fast","A trusted authority vouches that the key belongs to that name","The site has no bugs","The server is in your country"],1,"The CA signs the certificate so browsers can trust the name and key pairing."],["Why do browsers block a page with an expired certificate?",["The server is offline","They can no longer be sure who they are talking to","The key is too long","DNS failed"],1,"After expiry the certificate is no longer guaranteed valid, so identity can't be trusted."],["Best way to avoid certificate outage?",["Renew by hand when you remember","Automate renewal and alert before expiry","Use HTTP instead","Extend validity to 10 years"],1,"Automation (Let's Encrypt, ACM) plus expiry alerts prevents forgotten renewals."]],
+logs:[["Which log line matters most during a brute-force investigation?",["Failed password for root","Accepted password after many failures","Connection closed","Server listening"],1,"A success after many failures from one IP suggests the attacker got in."],["Which command counts failed logins per IP?",["grep Failed auth.log | awk '{print $11}' | sort | uniq -c | sort -nr","ls -l auth.log","chmod 600 auth.log","df -h"],0,"grep, extract the IP field, sort, count with uniq -c, then sort by count."],["Which is a strong SSH hardening step?",["Allow root password login","Use key-based login and disable passwords","Open port 22 to all","Share one key"],1,"Keys plus disabled password login makes guessing useless."],["What does fail2ban do?",["Encrypts disks","Bans IPs after repeated failures","Backs up logs","Renews certificates"],1,"It watches logs and adds firewall rules for offending IPs."]],
+ir:[["What should you do first when a host is compromised?",["Wipe it at once","Contain it while keeping evidence","Ignore it","Reboot repeatedly"],1,"Isolate to stop spread but preserve logs and memory for analysis."],["Why rebuild a compromised server instead of cleaning it?",["It is cheaper","You cannot be sure what the attacker left behind","Cleaning is illegal","Rebuilds are slower"],1,"Backdoors may remain, so a clean image is safer."],["What is a blameless postmortem?",["Punishing the person at fault","A review that fixes systems and process","A press release","A backup"],1,"Focus is on how the system allowed the failure."],["Which phase comes before detection?",["Recovery","Preparation","Review","Eradication"],1,"Preparation: runbooks, logging, backups and contacts."]],
 iam:[["What does least privilege mean?",["Give everyone admin","Give only the access that is needed","Share one password","Disable logging"],1,"Grant the minimum permissions required, so a compromised account can do little damage."],["No policy allows an action. What happens?",["It is allowed","It is denied","It is delayed","It asks for a password"],1,"Access is denied by default unless a policy explicitly allows it."],["What does MFA add?",["A second proof of identity","More storage","Faster logins","A bigger policy"],0,"A code or key on top of the password, so a stolen password alone is not enough."]],
 linux:[["What does permission mode 640 mean?",["Owner rw, group r, others none","Everyone can write","Owner only","Group rw, others r"],0,"6 = rw for the owner, 4 = r for the group, 0 = nothing for others."],["Which command changes a file's permissions?",["chmod","ls","grep","ps"],0,"chmod changes the mode. chown changes the owner."],["Where does Linux keep most logs?",["/var/log","/bin","/tmp/new","/home/bin"],0,"/var/log holds system and service logs, plus the systemd journal."]],
 terraform:[["Which command shows what will change without changing anything?",["terraform plan","terraform apply","terraform init","terraform fmt"],0,"plan previews the add, change and destroy counts. Nothing is touched."],["What does the state file record?",["Your passwords","Which real resources Terraform created","The Git history","Server logs"],1,"State maps your code to the real resources it manages."],["Someone edits a resource by hand in the console. What reveals it?",["Nothing","terraform plan shows drift","terraform init","The next Git commit"],1,"Plan compares code, state and the real cloud, so drift appears as a change."]],
@@ -2503,7 +2616,7 @@ function notesDownload(L){
 }
 function notesPrint(L){$('#printdoc').innerHTML=notesHTML(L);try{window.print()}catch(e){}}
 /* ----- tour ----- */
-var TOUR=[["Welcome to OpsLens","Twelve interactive lessons, three practice labs and 24 AWS guides. Everything runs in your browser, and your progress is saved there."],["Pick a lesson","The tabs at the top open a lesson. Each one has an animated 3D diagram, short step cards, and a quick check at the end."],["Practice what you learn","The Practice menu has the Incident Room game, the Build Lab for designing your own infrastructure, and a Git Practice terminal."],["Find anything fast","The Sections button opens a window listing every lesson, step and AWS guide, with your progress."]];
+var TOUR=[["Welcome to OpsLens","Fifteen interactive lessons, three practice labs and 24 AWS guides. Everything runs in your browser, and your progress is saved there."],["Pick a lesson","The tabs at the top open a lesson. Each one has an animated 3D diagram, short step cards, and a quick check at the end."],["Practice what you learn","The Practice menu has the Incident Room game, the Build Lab for designing your own infrastructure, and a Git Practice terminal."],["Find anything fast","The Sections button opens a window listing every lesson, step and AWS guide, with your progress."]];
 function tourOpen(){
   var t=$('#tour');if(!t){t=document.createElement('div');t.id='tour';t.className='mdl';t.setAttribute('role','dialog');t.setAttribute('aria-modal','true');t.setAttribute('aria-labelledby','tourT');$('.app').appendChild(t)}
   tourI=0;t.hidden=false;tourRender();
@@ -2541,4 +2654,133 @@ document.addEventListener('keydown',function(e){
 
 window.addEventListener('hashchange',fromHash);
 fromHash();
+/* ===== plus features ===== */
+var PRE={git:'No prerequisites.',docker:'Basic command line.',kubernetes:'Docker lesson first.',ec2:'Networking basics help.',s3:'EC2 lesson helps.',scaling:'No prerequisites.',pipeline:'Git lesson first.',network:'No prerequisites.',terraform:'AWS EC2 lesson helps.',monitoring:'No prerequisites.',iam:'AWS EC2 lesson helps.',linux:'No prerequisites.',tls:'Networking lesson first.',logs:'Linux basics first.',ir:'Log attack hunt first.'};
+function mins(L){return Math.max(3,Math.round(L.steps.length*1.4))}
+var _rc=renderCard;
+renderCard=function(){
+  _rc();
+  if(qzOn||idx!==0||!cur||!$('#card'))return;
+  var li=cur.steps.map(function(s){return '<li>'+esc(s.title)+'</li>'}).slice(0,3).join('');
+  var h='<div class="istrip"><div class="meta"><span>⏱ about '+mins(cur)+' min</span><span>'+cur.steps.length+' steps + quiz</span><span>Before: '+esc(PRE[cur.id]||'None')+'</span></div><b>You will learn</b><ul>'+li+'</ul></div>';
+  $('#card').insertAdjacentHTML('afterbegin',h);
+};
+/* tools: focus + cheat */
+(function(){
+  var t=$('.tools');if(!t)return;
+  t.insertAdjacentHTML('afterbegin','<button class="icon tl2" id="fxBtn" type="button" aria-pressed="false" title="Hide side panels">Focus</button><button class="icon tl2" id="chBtn" type="button" title="One page cheat sheet for this lesson">Cheat sheet</button>');
+  if(lsGet('fx',0)){$('.app').classList.add('fx');$('#fxBtn').setAttribute('aria-pressed','true')}
+  var sb=$('#themeBtn');if(sb)sb.insertAdjacentHTML('beforebegin','<button class="themebtn" id="srchBtn" type="button" aria-label="Search (Ctrl+K)" title="Search (Ctrl+K)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></button>');
+  document.body.insertAdjacentHTML('beforeend','<div class="ov" id="ov" hidden><div class="ov-win" id="ovw" role="dialog" aria-modal="true" aria-label="Dialog"></div></div>');
+})();
+var ovLast=null;
+function ovOpen(h,label){ovLast=document.activeElement;var w=$('#ovw');w.innerHTML=h;w.setAttribute('aria-label',label||'Dialog');$('#ov').hidden=false;try{document.body.style.overflow='hidden'}catch(e){}return w}
+function ovClose(){$('#ov').hidden=true;try{document.body.style.overflow=''}catch(e){}if(ovLast&&ovLast.focus)ovLast.focus()}
+document.addEventListener('keydown',function(e){
+  var ov=$('#ov');
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();srchOpen();return}
+  if(e.key==='Escape'&&ov&&!ov.hidden){ovClose();return}
+  if(ov&&!ov.hidden&&$('#srchIn')&&(e.key==='ArrowDown'||e.key==='ArrowUp')){e.preventDefault();var b=[].slice.call(document.querySelectorAll('#srchList button')),i=b.findIndex(function(x){return x.getAttribute('aria-selected')==='true'});if(!b.length)return;i=clamp(i+(e.key==='ArrowDown'?1:-1),0,b.length-1);b.forEach(function(x){x.setAttribute('aria-selected','false')});b[i].setAttribute('aria-selected','true');b[i].scrollIntoView({block:'nearest'})}
+  if(e.key==='Enter'&&e.target&&e.target.id==='srchIn'){var s=document.querySelector('#srchList button[aria-selected=true]');if(s){e.preventDefault();s.click()}}
+});
+/* search */
+function sIndex(){
+  var o=[];
+  LESSONS.forEach(function(L){o.push({n:L.name,s:'Lesson · '+L.steps.length+' steps',t:L.name+' '+L.blurb,go:['l',L.id,0]});L.steps.forEach(function(st,i){o.push({n:st.title,s:L.name+' · step '+(i+1),t:st.title+' '+st.text+' '+st.idea+' '+L.name,go:['l',L.id,i]})})});
+  LNX.forEach(function(x){o.push({n:x[1],s:'Linux guide · '+x[2],t:x[1]+' '+x[4]+' '+x[2],go:['x',x[0]]})});
+  svcGuides().forEach(function(x){o.push({n:x[1],s:'AWS guide',t:x.slice(0,4).join(' '),go:['a',x[0]]})});
+  return o;
+}
+function srchOpen(){
+  var w=ovOpen('<button class="btn ov-x" type="button" data-ovx="1">Close</button><h2>Search OpsLens</h2><input id="srchIn" type="search" autocomplete="off" placeholder="Search lessons, steps, Linux and AWS guides" aria-label="Search"><ul class="ov-list" id="srchList" role="listbox"></ul>','Search');
+  var all=sIndex();
+  function run(){
+    var q=$('#srchIn').value.toLowerCase().trim().split(/\s+/).filter(Boolean),r=all;
+    if(q.length)r=all.filter(function(x){var t=x.t.toLowerCase();return q.every(function(w){return t.indexOf(w)>=0})}).sort(function(a,b){var an=q.every(function(w){return a.n.toLowerCase().indexOf(w)>=0})?0:1,bn=q.every(function(w){return b.n.toLowerCase().indexOf(w)>=0})?0:1;return an-bn});
+    else r=all.filter(function(x){return x.go[0]==='l'&&x.go[2]===0&&x.s.indexOf('Lesson')===0});
+    r=r.slice(0,14);window._sr=r;
+    $('#srchList').innerHTML=r.length?r.map(function(x,i){return '<li><button type="button" role="option" data-sr="'+i+'" aria-selected="'+(i===0)+'">'+esc(x.n)+'<small>'+esc(x.s)+'</small></button></li>'}).join(''):'<li style="padding:10px">No matches. Try a shorter word.</li>';
+  }
+  $('#srchIn').addEventListener('input',run);run();$('#srchIn').focus();
+}
+function srchGo(i){
+  var x=window._sr[i];if(!x)return;ovClose();var g=x.go;
+  if(g[0]==='l'){pick(g[1],g[2]);return}
+  mOpen();MS=g[0]==='x'?'lnx':'aws';MSVC=g[1];
+  if(g[0]==='x'&&lnxSeen.indexOf(g[1])<0){lnxSeen.push(g[1]);lsSet('lnxseen',lnxSeen)}
+  if(g[0]==='a'&&svcSeen.indexOf(g[1])<0){svcSeen.push(g[1]);lsSet('svcseen',svcSeen)}
+  mRender();
+}
+/* review queue (spaced) */
+var DAY=86400000,GAPS=[1,3,7,14];
+function revGet(){return lsGet('rev',{})}
+function revDue(){var r=revGet(),n=Date.now();return Object.keys(r).filter(function(k){return r[k].d<=n})}
+function revRecord(id,miss){var r=revGet();miss.forEach(function(i){var k=id+':'+i;if(!r[k])r[k]={b:0,d:Date.now()}});lsSet('rev',r)}
+var _rq=renderQuizCard;
+renderQuizCard=function(){_rq();if(QZ&&QZ.done&&!QZ.rv){QZ.rv=1;if(QZ.miss&&QZ.miss.length)revRecord(QZ.id,QZ.miss)}};
+var RV=null;
+function revOpen(){
+  var d=revDue();RV={q:d,i:0,sel:null,ok:0};revShow();
+}
+function revShow(){
+  if(!RV.q.length){ovOpen('<button class="btn ov-x" type="button" data-ovx="1">Close</button><h2>Review today</h2><p>Nothing is due. Questions you miss in a lesson quiz come back here after 1, 3, 7 and 14 days.</p>','Review');return}
+  if(RV.i>=RV.q.length){ovOpen('<button class="btn ov-x" type="button" data-ovx="1">Close</button><h2>Review done</h2><p>You got <b>'+RV.ok+' of '+RV.q.length+'</b> right. Wrong answers return tomorrow.</p>','Review');return}
+  var k=RV.q[RV.i].split(':'),qq=QUIZ[k[0]][+k[1]],a=RV.sel!=null;
+  ovOpen('<button class="btn ov-x" type="button" data-ovx="1">Close</button><h2>Review · '+(RV.i+1)+' / '+RV.q.length+'</h2><p><b>'+esc(qq[0])+'</b></p><div class="qopts">'+qq[1].map(function(o,j){return '<button class="btn qopt'+(a?(j===qq[2]?' ok':(j===RV.sel?' bad':'')):'')+'" type="button" data-rvo="'+j+'"'+(a?' disabled':'')+'>'+esc(o)+'</button>'}).join('')+'</div>'+(a?'<div class="idea"><b>'+(RV.sel===qq[2]?'Correct':'Not quite')+'</b>'+esc(qq[3])+'</div><button class="btn go" type="button" data-rvn="1"><span>Next</span><span aria-hidden="true">→</span></button>':''),'Review');
+}
+function revAnswer(j){
+  var key=RV.q[RV.i],k=key.split(':'),qq=QUIZ[k[0]][+k[1]],r=revGet(),e=r[key]||{b:0,d:0};RV.sel=j;
+  if(j===qq[2]){RV.ok++;e.b++;if(e.b>=GAPS.length)delete r[key];else{e.d=Date.now()+GAPS[e.b]*DAY;r[key]=e}}
+  else{e.b=0;e.d=Date.now()+DAY;r[key]=e}
+  lsSet('rev',r);revShow();
+}
+/* certificate */
+function certOpen(){
+  var dn=lessonDone(),k=Object.keys(dn).length,ok=k>=LESSONS.length,pf=0;Object.keys(dn).forEach(function(x){if(dn[x]===3||dn[x]===4)pf++});
+  if(!ok){ovOpen('<button class="btn ov-x" type="button" data-ovx="1">Close</button><h2>Certificate</h2><p>Finish the quick check in every lesson to unlock it. You have done <b>'+k+' of '+LESSONS.length+'</b>.</p>','Certificate');return}
+  var nm=lsGet('name','');
+  ovOpen('<button class="btn ov-x" type="button" data-ovx="1">Close</button><h2>Your certificate</h2><label>Name on certificate<input id="certName" type="text" maxlength="40" value="'+esc(nm)+'" placeholder="Your name"></label><div id="certBox" style="margin-top:12px"></div><div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><button class="btn" type="button" id="certPrint">Print or save as PDF</button><button class="btn" type="button" id="certCopy">Copy text</button></div>','Certificate');
+  certDraw();
+}
+function certHTML(){
+  var nm=($('#certName')&&$('#certName').value.trim())||'Learner',d=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+  return '<div class="cert"><div style="font:600 12px monospace;letter-spacing:.2em;color:#a34700">OPSLENS</div><h3>Certificate of completion</h3><p>This certifies that</p><div class="nm">'+esc(nm)+'</div><p>completed all '+LESSONS.length+' interactive DevOps and security lessons and their quick checks, covering Git, containers, Kubernetes, AWS, Terraform, monitoring, IAM, Linux, TLS, log analysis and incident response.</p><p style="color:#566070">'+d+'</p></div>';
+}
+function certDraw(){$('#certBox').innerHTML=certHTML();var n=$('#certName');if(n&&!n._b){n._b=1;n.addEventListener('input',function(){lsSet('name',n.value);$('#certBox').innerHTML=certHTML()})}}
+/* cheat sheet */
+function cheatHTML(L){
+  var q=QUIZ[L.id]||[];
+  return '<h2>'+esc(L.name)+' · cheat sheet</h2><p><em>'+esc(L.blurb)+'</em></p><h3>Parts</h3><ul>'+(L.parts||[]).map(function(p){return '<li><b>'+esc(p[2])+'</b>: '+esc(p[3])+'</li>'}).join('')+'</ul><h3>Key ideas</h3><ul>'+L.steps.map(function(s){return '<li><b>'+esc(s.label)+'</b>: '+esc(s.idea)+'</li>'}).join('')+'</ul>'+(q.length?'<h3>Quick facts</h3><ul>'+q.map(function(x){return '<li>'+esc(x[3])+'</li>'}).join('')+'</ul>':'');
+}
+function cheatOpen(){var L=cur;ovOpen('<button class="btn ov-x" type="button" data-ovx="1">Close</button><div class="cheat" id="cheatBody">'+cheatHTML(L)+'</div><div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><button class="btn" type="button" id="chPrint">Print or save as PDF</button><button class="btn" type="button" id="chCopy">Copy as text</button></div>','Cheat sheet')}
+function copyTxt(t,btn){var done=function(){var o=btn.textContent;btn.textContent='Copied';setTimeout(function(){btn.textContent=o},1500)};try{navigator.clipboard.writeText(t).then(done,function(){btn.textContent='Select and copy manually'})}catch(e){btn.textContent='Select and copy manually'}}
+/* home extras */
+var _rh=renderHome;
+renderHome=function(){
+  _rh();
+  var tot=0,vis=0;LESSONS.forEach(function(L){tot+=L.steps.length;vis+=(seen[L.id]||[]).length});
+  var pct=tot?Math.round(vis/tot*100):0,c=2*Math.PI*26,dn=Object.keys(lessonDone()).length,due=revDue().length,st=streakDays();
+  var ring='<div class="ringbox"><svg width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="'+pct+' percent of steps explored"><circle cx="32" cy="32" r="26" fill="none" stroke="rgba(120,130,145,.25)" stroke-width="7"/><circle cx="32" cy="32" r="26" fill="none" stroke="#ff8a1f" stroke-width="7" stroke-linecap="round" stroke-dasharray="'+(c*pct/100).toFixed(1)+' '+c.toFixed(1)+'" transform="rotate(-90 32 32)"/><text x="32" y="37" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">'+pct+'%</text></svg><div><b>'+(st?st+' day streak':'Start a streak today')+'</b><small>'+vis+' of '+tot+' steps · '+dn+' of '+LESSONS.length+' quizzes</small></div></div>';
+  var ex='<div class="hextra">'+ring+'<button class="btn" type="button" data-srch="1">Search · Ctrl+K</button><button class="btn" type="button" data-rev="1">Review today'+(due?' ('+due+')':'')+'</button><button class="btn" type="button" data-cert="1">Certificate'+(dn>=LESSONS.length?'':' (locked)')+'</button></div>';
+  var h=document.querySelector('#home .hprog');if(h)h.insertAdjacentHTML('afterend',ex);
+};
+document.addEventListener('click',function(e){
+  var t=e.target.closest&&e.target.closest('button');if(!t){if(e.target.id==='ov')ovClose();return}
+  var d=t.dataset;
+  if(d.ovx){ovClose();return}
+  if(d.sr!=null){srchGo(+d.sr);return}
+  if(d.srch||t.id==='srchBtn'){srchOpen();return}
+  if(d.rev){revOpen();return}
+  if(d.rvo!=null){if(RV&&RV.sel==null)revAnswer(+d.rvo);return}
+  if(d.rvn){RV.i++;RV.sel=null;revShow();return}
+  if(d.cert){certOpen();return}
+  if(t.id==='certPrint'){$('#printdoc').innerHTML=certHTML();try{window.print()}catch(x){}return}
+  if(t.id==='certCopy'){copyTxt('Certificate of completion: '+(($('#certName').value||'Learner'))+' completed all '+LESSONS.length+' OpsLens lessons.',t);return}
+  if(t.id==='chBtn'){cheatOpen();return}
+  if(t.id==='chPrint'){$('#printdoc').innerHTML='<div class="cheat">'+cheatHTML(cur)+'</div>';try{window.print()}catch(x){}return}
+  if(t.id==='chCopy'){copyTxt($('#cheatBody').innerText,t);return}
+  if(t.id==='fxBtn'){var on=$('.app').classList.toggle('fx');t.setAttribute('aria-pressed',on?'true':'false');lsSet('fx',on?1:0);return}
+});
+
+try{if(hmOn)renderHome();else if(cur&&$('#card'))renderCard()}catch(e){}
 })();
